@@ -96,10 +96,9 @@
                         </label>
                     </div>
 
-                    <div class="buttons">
-                        <button type="submit" class="btn primary">CREAR JUGADOR</button>
-                    </div>
-
+               <button type="button" class="btn primary" onclick="irAPersonalizacion()">
+    CREAR JUGADOR
+</button>
                 </form>
 
             </div>
@@ -109,3 +108,19 @@
 
 </body>
 </html>
+
+
+<script>
+function irAPersonalizacion() {
+
+    const nombre = document.getElementById("nombre").value;
+
+    const posicion =
+        document.querySelector('input[name="posicion"]:checked').value;
+
+    sessionStorage.setItem("nombreJugador", nombre);
+    sessionStorage.setItem("posicionJugador", posicion);
+
+    window.location.href = "crearjugador2.html";
+}
+</script>
