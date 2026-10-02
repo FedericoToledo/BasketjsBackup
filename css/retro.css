@@ -783,6 +783,15 @@ button, input, select, textarea { touch-action: manipulation; }
 #app .hud span { font-size: 6px; letter-spacing: 0; }
 #app .hud b { font-size: 20px; }
 
+#app .btn .sub {
+    display: block;
+    width: 100%;
+    margin-top: 2px;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.2;
+}
+
 #app .monograma {
     width: 40px;
     height: 40px;

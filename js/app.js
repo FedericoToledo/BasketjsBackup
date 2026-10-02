@@ -76,7 +76,10 @@ function estadoInicial() {
         calendario: [],
         plusSalario: 0,
         esperando: null,
-        extra: false
+        extra: false,
+        partidos: 0,
+        victorias: 0,
+        renegocioEn: null
     };
 }
 
@@ -245,8 +248,15 @@ function rol() {
     return ["PROSPECTO", "Recién llegado. Cada entrenamiento suma."];
 }
 
+function salarioValor() {
+    if (!state.equipoId) return 0;
+    const eq = equipoActual();
+    const piso = eq ? Number(eq.minima) / 50 : 0;
+    return piso + 1.2 + ovr() / 18 + (state.plusSalario || 0);
+}
+
 function salario() {
-    return (1.2 + ovr() / 18 + (state.plusSalario || 0)).toFixed(1);
+    return salarioValor().toFixed(1);
 }
 
 function guardarLocal() {
@@ -257,7 +267,8 @@ function cargarLocal() {
     try {
         const guardado = JSON.parse(localStorage.getItem("rookie-jugador") || "null");
         if (!guardado || !guardado.nombre) return;
-        if (guardado.fase === "carrera" || guardado.fase === "retiro" || guardado.fase === "ficha" || guardado.fase === "hub") {
+        const fasesJuego = ["carrera", "retiro", "ficha", "hub", "lobby", "entrenar", "ofertas"];
+        if (fasesJuego.includes(guardado.fase)) {
             state = Object.assign(estadoInicial(), guardado);
         }
     } catch (error) {
@@ -266,10 +277,10 @@ function cargarLocal() {
 }
 
 function migrar() {
-    if (state.fase === "hub" && state.nombre && state.posicion && state.equipoId) {
-        state.fase = "carrera";
+    if (state.fase === "hub" || state.fase === "carrera" || state.fase === "retiro") {
+        state.fase = "lobby";
     }
-    if (state.fase !== "carrera" && state.fase !== "retiro" && state.fase !== "ficha") return;
+    if (state.fase !== "lobby" && state.fase !== "entrenar" && state.fase !== "ofertas" && state.fase !== "ficha") return;
     if (!state.stats && state.posicion) state.stats = Object.assign({}, BASES[state.posicion]);
     if (state.hinchada == null) state.hinchada = state.quimica || 58;
     if (!state.rival) state.rival = { nombre: "EL ELEGIDO", puntos: 18, titulos: 0 };
@@ -287,6 +298,8 @@ function migrar() {
     state.plusSalario = state.plusSalario || 0;
     state.calendario = state.calendario || [];
     if (state.calibre == null) state.calibre = state.equipoId ? 72 : 46;
+    state.partidos = state.partidos || 0;
+    state.victorias = state.victorias || 0;
 }
 
 function validarArmar() {
@@ -317,7 +330,7 @@ function equiposAlAlcance() {
     const techo = lista.filter((eq) => Number(eq.minima) >= calibre - 12);
     const pool = (techo.length ? techo : lista).slice(0, 8);
     if (!pool.length) return [];
-    const indice = hashTexto(state.nombre + "-" + state.turno + "-" + state.temporada) % pool.length;
+    const indice = hashTexto(state.nombre + "-" + (state.partidos || 0) + "-" + (state.victorias || 0)) % pool.length;
     const primero = pool[indice];
     const segundo = pool.find((eq) => eq.liga !== primero.liga && Number(eq.id) !== Number(primero.id))
         || pool[(indice + 1) % pool.length];
@@ -696,10 +709,13 @@ async function comenzarAJugar() {
     state.trofeos = TROFEOS_BASE.map((nombre) => ({ nombre, cantidad: 0 }));
     state.trayectoria = [];
     state.calendario = [];
-    state.fase = "carrera";
+    state.partidos = 0;
+    state.victorias = 0;
+    state.renegocioEn = null;
+    state.fase = "lobby";
     state.paso = "inicio";
     state.error = "";
-    asegurarCalendario();
+    state.flash = "";
     guardarLocal();
     render();
     try {
@@ -757,6 +773,8 @@ function payload() {
         calendario: state.calendario,
         plusSalario: state.plusSalario,
         calibre: state.calibre,
+        partidos: state.partidos,
+        victorias: state.victorias,
         fase: state.fase
     };
 }
@@ -784,21 +802,81 @@ function cobrarRecompensa() {
         localStorage.removeItem("rookie-recompensa");
         return;
     }
-    const sube = premio.gano ? 3 : 1;
-    if (premio.juego === "reflejos") state.stats.velocidad = Math.min(99, state.stats.velocidad + sube);
-    if (premio.juego === "simon") state.stats.control = Math.min(99, state.stats.control + sube);
-    if (premio.juego === "memoria") state.stats.tiro = Math.min(99, state.stats.tiro + sube);
-    if (premio.juego === "defensa") {
-        state.stats.defensa = Math.min(99, state.stats.defensa + sube);
-        if (premio.gano) sumarTrofeo("MEJOR DEFENSOR");
-    }
     state.cobradas.push(premio.id);
     localStorage.removeItem("rookie-recompensa");
-    if (state.fase === "carrera" && state.esperando && state.esperando === premio.juego) {
-        resolverMinijuego(!!premio.gano);
+    if (!state.nombre || state.fase === "crear") {
+        persistir();
         return;
     }
+    if (state.esperando === "partido") cobrarPrima(!!premio.gano);
+    else cobrarEntreno(!!premio.gano, premio.juego);
+}
+
+function subirStat(juego, cuanto) {
+    const mapa = { reflejos: "velocidad", simon: "control", memoria: "tiro", defensa: "defensa" };
+    const clave = mapa[juego];
+    if (!clave || !state.stats) return "";
+    state.stats[clave] = Math.min(99, state.stats[clave] + cuanto);
+    if (juego === "defensa" && cuanto >= 3) sumarTrofeo("MEJOR DEFENSOR");
+    return { velocidad: "Velocidad", control: "Control", tiro: "Tiro", defensa: "Defensa" }[clave];
+}
+
+function cobrarEntreno(gano, juego) {
+    state.esperando = null;
+    const sube = gano ? 3 : 1;
+    const nombre = subirStat(juego, sube) || "Habilidad";
+    state.calibre = Math.min(99, (state.calibre || 46) + (gano ? 10 : 4));
+    state.flash = nombre + " +" + sube + ". Calibre " + state.calibre + ".";
+    state.fase = "lobby";
     persistir();
+    render();
+}
+
+function cobrarPrima(gano) {
+    state.esperando = null;
+    state.partidos = (state.partidos || 0) + 1;
+    if (gano) {
+        state.victorias = (state.victorias || 0) + 1;
+        const prima = (state.equipoId ? 0.4 : 0.15) + (state.calibre || 46) / 200;
+        state.plusSalario += prima;
+        state.hinchada = clamp(state.hinchada + 8, 0, 100);
+        state.puntosCarrera += 16;
+        state.calibre = Math.min(99, (state.calibre || 46) + 2);
+        state.flash = state.equipoId
+            ? "Prima: US$ " + prima.toFixed(1) + "M. El sueldo queda en US$ " + salario() + "M."
+            : "Te vieron en la calle. Esa prima entra cuando firmes.";
+        if (state.equipoId && state.victorias % 4 === 0) {
+            state.plusSalario += 0.4;
+            state.flash += " Renovación del contrato.";
+        }
+    } else {
+        state.hinchada = clamp(state.hinchada - 4, 0, 100);
+        state.puntosCarrera += 4;
+        state.flash = "Sin prima. El partido se escapó.";
+    }
+    if (state.partidos % 10 === 0) {
+        state.temporada += 1;
+        state.edad += 1;
+        state.flash += " Temporada " + state.temporada + ".";
+    }
+    state.quimica = state.hinchada;
+    state.fase = "lobby";
+    persistir();
+    render();
+}
+
+function juegoPartido() {
+    return ["reflejos", "memoria", "simon", "defensa"][(state.partidos || 0) % 4];
+}
+
+function textoLobby() {
+    const eq = equipoActual();
+    const ofertas = equiposAlAlcance();
+    if (!eq) {
+        if (!ofertas.length) return "Estás en la calle. Entrená para subir el calibre. Un club llama desde 54. La NBA, desde 78.";
+        return "Hay ofertas para tu calibre " + state.calibre + ". Podés firmar y empezar la carrera.";
+    }
+    return "Contrato con " + eq.nombre + ". " + (ofertas.length ? "Hay un club mejor mirándote. " : "") + "Si ganás el partido, cobrás prima.";
 }
 
 function resolverMinijuego(gano) {
@@ -906,9 +984,9 @@ function pantallaComo() {
             <h1>COMO<br><span>JUGAR</span></h1>
             <div class="opciones">
                 <div class="caja"><h2>01 ARMAS</h2><p class="lead">Nombre, puesto, estilo y dos habilidades. Sin equipo.</p></div>
-                <div class="caja"><h2>02 LA CALLE</h2><p class="lead">Los minijuegos suben el calibre. Un club llama si llegás a su piso.</p></div>
-                <div class="caja"><h2>03 OFERTAS</h2><p class="lead">Liga Nacional, universidad y, desde 78, la NBA.</p></div>
-                <div class="caja"><h2>04 EL RETIRO</h2><p class="lead">Clubes, números y el mano a mano con El Elegido.</p></div>
+                <div class="caja"><h2>02 LOBBY</h2><p class="lead">Entrenás, mirás la ficha y esperás. La carrera no se cierra.</p></div>
+                <div class="caja"><h2>03 OFERTAS</h2><p class="lead">Un club llama si tu calibre llega a su piso. Podés cambiar y cobrar más.</p></div>
+                <div class="caja"><h2>04 PARTIDO</h2><p class="lead">Si ganás, hay prima. Cada tanto el contrato se renueva.</p></div>
             </div>
         </div>
         <div class="actions">
@@ -949,17 +1027,95 @@ function pantallaArmar() {
 }
 
 function hud() {
+    const sueldo = state.equipoId ? salario() : "SIN";
     return `<div class="hud">
         <div><span>HINCHADA</span><b>${state.hinchada}</b></div>
         <div><span>CALIBRE</span><b>${state.calibre || 46}</b></div>
-        <div><span>PUNTOS</span><b>${state.puntosCarrera}</b></div>
-        <div><span>RIVAL</span><b>${state.rival.puntos}</b></div>
+        <div><span>SUELDO</span><b>${sueldo}</b></div>
+        <div><span>PARTIDOS</span><b>${state.partidos || 0}</b></div>
     </div>`;
+}
+
+function pantallaLobby() {
+    const eq = equipoActual();
+    const box = boxScore();
+    const ofertas = equiposAlAlcance();
+    const juego = juegoPartido();
+    return `<section class="screen">
+        ${cabeza(`<button class="link" data-accion="ficha">FICHA</button>`)}
+        <div class="body">
+            <div class="ficha-top">
+                <div class="ovr">${ovr()}<small>${esc(state.posicion)}</small></div>
+                <div>
+                    <div class="nombre-jugador">${esc(state.nombre.trim())}</div>
+                    <p class="subficha">${esc(POSICIONES[state.posicion] || "")} · ${esc(etiquetaClub(eq))} · ${state.edad} años</p>
+                </div>
+                ${marcaLogo(eq)}
+            </div>
+            ${hud()}
+            ${state.flash ? `<p class="flash">${esc(state.flash)}</p>` : ""}
+            <p class="lead">${esc(textoLobby())}</p>
+            <p class="nums">${box.ppg}<small>PTS</small> ${box.reb}<small>REB</small> ${box.ast}<small>AST</small></p>
+        </div>
+        <div class="actions columna">
+            <button class="btn" data-accion="entrenar">Entrenar</button>
+            <button class="btn" data-accion="ofertas">Ofertas${ofertas.length ? " · " + ofertas.length : ""}</button>
+            <a class="btn" data-juego="${esc(juego)}" data-modo="partido" href="${esc(linkJuego(juego))}">Jugar partido</a>
+        </div>
+    </section>`;
+}
+
+function pantallaEntrenar() {
+    const juegos = [
+        ["reflejos", "Reflejos", "Velocidad"],
+        ["simon", "Simón", "Control"],
+        ["memoria", "Memoria", "Tiro"],
+        ["defensa", "Defensa", "Defensa"]
+    ];
+    const botones = juegos.map(([juego, titulo, detalle]) =>
+        `<a class="btn eleccion" data-juego="${juego}" href="${esc(linkJuego(juego))}">${titulo}<span class="sub">${detalle}</span></a>`
+    ).join("");
+    return `<section class="screen">
+        ${cabeza("GYM")}
+        <div class="body">
+            <h1>ENTRENAR</h1>
+            <p class="lead">Ganar suma 3 a la habilidad y 10 de calibre. Perder suma 1 y 4.</p>
+        </div>
+        <div class="actions columna">
+            ${botones}
+            <button class="btn ghost" data-accion="lobby">Volver</button>
+        </div>
+    </section>`;
+}
+
+function pantallaOfertas() {
+    const lista = equiposAlAlcance();
+    let lead = "Tu calibre es " + (state.calibre || 46) + ". Ningún club te llama todavía. Entrená y volvé. La NBA abre en 78.";
+    if (!equipos.length) lead = "No pude leer los clubes. Volvé al lobby e intentá de nuevo.";
+    else if (lista.length) lead = "Tu calibre es " + state.calibre + ". " + lista[0].nombre + " (" + lista[0].liga + ") pide " + lista[0].minima + ".";
+    const botones = lista.map((eq) =>
+        `<button class="btn eleccion" data-club="${eq.id}">${esc(eq.nombre)} · ${esc(eq.liga)} ${eq.minima}</button>`
+    ).join("");
+    const renegociar = state.equipoId && state.renegocioEn !== state.partidos
+        ? `<button class="btn ghost" data-accion="renegociar">Renegociar sueldo</button>`
+        : "";
+    return `<section class="screen">
+        ${cabeza("CLUBES")}
+        <div class="body">
+            <h1>OFERTAS</h1>
+            <p class="lead">${esc(lead)}</p>
+        </div>
+        <div class="actions columna">
+            ${botones}
+            ${renegociar}
+            <button class="btn ghost" data-accion="lobby">Volver al lobby</button>
+        </div>
+    </section>`;
 }
 
 function pantallaCarrera() {
     const ev = eventoActual();
-    if (!ev) return pantallaRetiro();
+    if (!ev) return pantallaLobby();
     const eq = equipoActual();
     const box = boxScore();
     return `<section class="screen">
@@ -1019,12 +1175,12 @@ function pantallaFicha() {
             </div>
             <p class="nums">${box.ppg}<small>PTS</small> ${box.reb}<small>REB</small> ${box.ast}<small>AST</small></p>
             <div class="caja"><h2>ATRIBUTOS</h2><div class="attrs">${htmlSkills}</div></div>
-            <div class="caja"><h2>ROL · US$ ${salario()}M</h2><strong class="gold">${esc(nombreRol)}</strong><div class="tags">${tags}</div></div>
+            <div class="caja"><h2>ROL · ${state.equipoId ? "US$ " + salario() + "M" : "SIN CONTRATO"}</h2><strong class="gold">${esc(nombreRol)}</strong><div class="tags">${tags}</div></div>
             <div class="caja"><h2>VITRINA</h2><div class="copas">${copas}</div></div>
             <p class="cita">"${CITA}"</p>
         </div>
         <div class="actions">
-            <button class="btn" data-accion="volver-carrera">Volver</button>
+            <button class="btn" data-accion="lobby">Volver</button>
         </div>
     </section>`;
 }
@@ -1056,9 +1212,10 @@ function pantallaRetiro() {
 }
 
 function contenido() {
-    if (state.fase === "retiro") return pantallaRetiro();
     if (state.fase === "ficha") return pantallaFicha();
-    if (state.fase === "carrera") return pantallaCarrera();
+    if (state.fase === "entrenar") return pantallaEntrenar();
+    if (state.fase === "ofertas") return pantallaOfertas();
+    if (state.fase === "lobby" || state.fase === "carrera") return pantallaLobby();
     if (state.paso === "armar") return pantallaArmar();
     if (state.paso === "como") return pantallaComo();
     return pantallaInicio();
@@ -1104,8 +1261,31 @@ function ligar() {
                 guardarLocal();
                 render();
             }
-            if (accion === "volver-carrera") {
-                state.fase = eventoActual() ? "carrera" : "retiro";
+            if (accion === "lobby" || accion === "volver-carrera") {
+                state.fase = "lobby";
+                state.flash = "";
+                guardarLocal();
+                render();
+            }
+            if (accion === "entrenar") {
+                state.fase = "entrenar";
+                state.flash = "";
+                render();
+            }
+            if (accion === "ofertas") {
+                state.fase = "ofertas";
+                state.flash = "";
+                render();
+            }
+            if (accion === "renegociar") {
+                if (state.equipoId && state.renegocioEn !== state.partidos) {
+                    const sube = state.hinchada >= 70 ? 0.6 : 0.3;
+                    state.plusSalario += sube;
+                    state.renegocioEn = state.partidos;
+                    state.flash = "Renovaste. El sueldo sube US$ " + sube.toFixed(1) + "M.";
+                }
+                state.fase = "lobby";
+                persistir();
                 render();
             }
             if (accion === "otra-vez") {
@@ -1142,7 +1322,9 @@ function ligar() {
     raiz.querySelectorAll("[data-club]").forEach((nodo) => {
         nodo.addEventListener("click", () => {
             firmar(clubPorId(nodo.dataset.club), "oferta");
-            avanzar();
+            state.renegocioEn = state.partidos;
+            state.fase = "lobby";
+            persistir();
             render();
         });
     });
@@ -1151,7 +1333,8 @@ function ligar() {
     });
     raiz.querySelectorAll("[data-juego]").forEach((nodo) => {
         nodo.addEventListener("click", () => {
-            state.esperando = nodo.dataset.juego;
+            state.esperando = nodo.dataset.modo || nodo.dataset.juego;
+            state.fase = "lobby";
             state.flash = "";
             guardarLocal();
         });
