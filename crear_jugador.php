@@ -54,6 +54,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
 $conexion->close();
 ?>
+<?php header("Location: jugar.php"); exit; ?>
 <!DOCTYPE html>
 <html lang="es">
 <head>

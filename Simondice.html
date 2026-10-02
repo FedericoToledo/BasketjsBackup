@@ -9,6 +9,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/mini-fit.css">
+    <script src="js/mini-fit.js"></script>
 
     <style>
 
@@ -1253,7 +1255,7 @@
         ========================= */
 
         function gameOver() {
-
+            if (window.rookieSumar) rookieSumar("simon", false);
             playerTurn = false;
 
 
@@ -1274,7 +1276,7 @@
         ========================= */
 
         function winGame() {
-
+            if (window.rookieSumar) rookieSumar("simon", true);
             playerTurn = false;
 
 

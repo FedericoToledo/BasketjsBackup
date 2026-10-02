@@ -1,7 +1,7 @@
 <?php
 require 'conexion.php';
 
-$nombre = "Jugador";
+$nombre = trim($_GET["nombre"] ?? "") !== "" ? $_GET["nombre"] : "Jugador";
 
 // Colores por defecto (si no se eligió equipo o el id no existe)
 $colorPrimario = '#f59e0b';
@@ -35,6 +35,8 @@ if ($equipoId) {
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 
     <link rel="stylesheet" href="css/estilos.css">
+    <link rel="stylesheet" href="../css/mini-fit.css">
+    <script src="../js/mini-fit.js"></script>
 
     <style>
         :root {
