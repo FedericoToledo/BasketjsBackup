@@ -3,8 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\Jugador;
+use App\Models\User;
+use App\Support\Estrellas;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class CarreraController extends Controller
 {
@@ -16,15 +19,21 @@ class CarreraController extends Controller
 
         if ($user) {
             $filas = $user->jugadores()->orderByDesc('id')->get();
-            $jugadores = $filas->map(fn (Jugador $jugador) => [
-                'id' => $jugador->id,
-                'nombre' => $jugador->nombre,
-                'posicion' => $jugador->posicion,
-                'retiro' => (bool) $jugador->retiro,
-            ])->all();
+            $jugadores = $filas->map(fn (Jugador $jugador) => $this->resumen($jugador))->all();
             $viva = $filas->first(fn (Jugador $jugador) => ! $jugador->retiro);
             $mostrar = $viva ?: $filas->first();
             $activa = $mostrar ? $mostrar->fichaLista() : null;
+        }
+
+        $partidas = 0;
+        $partidos = 0;
+        $victorias = 0;
+        $calibre = 0;
+        foreach ($jugadores as $fila) {
+            $partidas += (int) $fila['partidas'];
+            $partidos += (int) $fila['partidos'];
+            $victorias += (int) $fila['victorias'];
+            $calibre = max($calibre, (int) $fila['calibre']);
         }
 
         return response()->json([
@@ -34,10 +43,30 @@ class CarreraController extends Controller
                 'email' => $user->email,
                 'avatar' => $user->avatar,
                 'manager' => (bool) $user->es_manager,
+                'nivel' => $user->es_manager ? Estrellas::nivelDeCalibre($calibre) : 0,
             ] : null,
             'jugadores' => $jugadores,
             'activa' => $activa,
+            'historial' => [
+                'carreras' => count($jugadores),
+                'partidas' => $partidas,
+                'partidos' => $partidos,
+                'victorias' => $victorias,
+            ],
         ]);
+    }
+
+    public function cerrar(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $id = $user->id;
+        $user->jugadores()->delete();
+        Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+        User::query()->whereKey($id)->delete();
+
+        return response()->json(['ok' => true]);
     }
 
     public function ver(Request $request, int $id): JsonResponse
@@ -74,11 +103,11 @@ class CarreraController extends Controller
         }
         if (! $jugador) {
             $id = 0;
-            if ($user) {
+            if ($user && ! $user->es_manager) {
                 if ($user->jugadores()->where('retiro', false)->exists()) {
                     return response()->json(['ok' => false, 'error' => 'Ya tenés una carrera activa.'], 422);
                 }
-                if ($user->jugadores()->exists() && ! $user->es_manager) {
+                if ($user->jugadores()->exists()) {
                     return response()->json(['ok' => false, 'error' => 'Pasá a manager para crear otro jugador.'], 422);
                 }
             }
@@ -113,5 +142,32 @@ class CarreraController extends Controller
         $jugador->save();
 
         return response()->json(['ok' => true, 'id' => $jugador->id]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function resumen(Jugador $jugador): array
+    {
+        $ficha = json_decode($jugador->ficha ?: '{}', true);
+        if (! is_array($ficha)) {
+            $ficha = [];
+        }
+
+        return [
+            'id' => $jugador->id,
+            'nombre' => $jugador->nombre,
+            'posicion' => $jugador->posicion,
+            'retiro' => (bool) $jugador->retiro,
+            'calibre' => (int) ($ficha['calibre'] ?? 46),
+            'partidos' => (int) ($ficha['partidos'] ?? 0),
+            'partidas' => (int) ($ficha['partidas'] ?? ($ficha['partidos'] ?? 0)),
+            'victorias' => (int) ($ficha['victorias'] ?? 0),
+            'liga' => $ficha['ligaOrigen'] ?? null,
+            'tipo' => $ficha['tipo'] ?? 'novato',
+            'estrellaId' => $ficha['estrellaId'] ?? null,
+            'dificultad' => $ficha['dificultad'] ?? 'baja',
+            'club' => $ficha['clubOrigen'] ?? null,
+        ];
     }
 }

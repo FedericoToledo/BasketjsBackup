@@ -22,17 +22,23 @@ let momentoObjetivo = 0;
 let intervalo;
 
 function moverObjetivo() {
-    const margen = 45;
-
-    const x = margen + Math.random() * (cancha.clientWidth - margen * 2);
-    const y = margen + Math.random() * (cancha.clientHeight - margen * 2);
+    objetivo.style.display = "block";
+    const tam = objetivo.offsetWidth || 52;
+    const margen = Math.ceil(tam / 2) + 4;
+    const ancho = Math.max(0, cancha.clientWidth - margen * 2);
+    const alto = Math.max(0, cancha.clientHeight - margen * 2);
+    const x = margen + Math.random() * ancho;
+    const y = margen + Math.random() * alto;
 
     objetivo.style.left = x + "px";
     objetivo.style.top = y + "px";
-    objetivo.style.display = "block";
 
     momentoObjetivo = performance.now();
 }
+
+window.addEventListener("resize", () => {
+    if (jugando) moverObjetivo();
+});
 
 function comenzarJuego() {
     jugando = true;

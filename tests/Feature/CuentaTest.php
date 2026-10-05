@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Jugador;
 use App\Models\User;
+use App\Support\Estrellas;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -34,7 +35,7 @@ class CuentaTest extends TestCase
 
     public function test_google_sin_claves_vuelve_al_juego(): void
     {
-        $this->get('/auth/google')->assertRedirect('/jugar.php?google=falta');
+        $this->get('/auth/google')->assertRedirect('/?google=falta');
     }
 
     public function test_la_sesion_de_invitado_no_trae_usuario(): void
@@ -92,6 +93,69 @@ class CuentaTest extends TestCase
         $this->actingAs($otro)
             ->getJson('/api/carrera/'.$id)
             ->assertNotFound();
+    }
+
+    public function test_el_manager_tiene_varias_carreras_y_el_mercado_respeta_el_nivel(): void
+    {
+        $user = User::factory()->create();
+        $primero = $this->actingAs($user)->postJson('/api/guardar.php', $this->ficha('Novato', [
+            'retirado' => true,
+            'fase' => 'retiro',
+            'calibre' => 46,
+            'partidos' => 2,
+            'partidas' => 5,
+        ]));
+        $primero->assertOk();
+
+        $this->actingAs($user)->postJson('/api/manager')->assertOk();
+        $this->actingAs($user)->postJson('/api/manager/fichar', ['id' => 'ncaa-1'])->assertStatus(422);
+
+        $this->actingAs($user)->postJson('/api/guardar.php', $this->ficha('Novato', [
+            'id' => $primero->json('id'),
+            'retirado' => true,
+            'fase' => 'retiro',
+            'calibre' => 54,
+            'partidos' => 2,
+            'partidas' => 5,
+        ]))->assertOk();
+
+        $fichaje = $this->actingAs($user)->postJson('/api/manager/fichar', ['id' => 'ncaa-1']);
+        $fichaje->assertOk();
+        $this->assertSame('Cameron Boozer', $fichaje->json('ficha.nombre'));
+        $this->assertSame(22.5, $fichaje->json('ficha.ppgPrevio'));
+
+        $this->actingAs($user)->postJson('/api/manager/fichar', ['id' => 'nba-1'])->assertStatus(422);
+        $this->actingAs($user)->postJson('/api/manager/fichar', ['id' => 'ncaa-1'])->assertStatus(422);
+
+        $segundo = $this->actingAs($user)->postJson('/api/guardar.php', $this->ficha('Estrella'));
+        $segundo->assertOk();
+        $this->assertNotSame($fichaje->json('id'), $segundo->json('id'));
+
+        $sesion = $this->actingAs($user)->getJson('/api/sesion');
+        $sesion->assertOk();
+        $sesion->assertJsonPath('user.manager', true);
+        $sesion->assertJsonPath('historial.carreras', 3);
+        $this->assertGreaterThanOrEqual(5, $sesion->json('historial.partidas'));
+
+        $this->getJson('/api/estrellas')
+            ->assertOk()
+            ->assertJsonCount(75);
+
+        $this->assertCount(25, array_filter(Estrellas::todas(), fn ($fila) => $fila['liga'] === 'NBA'));
+        $this->assertCount(25, array_filter(Estrellas::todas(), fn ($fila) => $fila['liga'] === 'NCAA'));
+        $this->assertCount(25, array_filter(Estrellas::todas(), fn ($fila) => $fila['liga'] === 'LNB'));
+    }
+
+    public function test_cerrar_cuenta_borra_el_perfil_y_las_carreras(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user)->postJson('/api/guardar.php', $this->ficha('Cierra'))->assertOk();
+
+        $this->actingAs($user)->postJson('/api/cuenta/cerrar')->assertOk();
+
+        $this->assertGuest();
+        $this->assertNull(User::query()->find($user->id));
+        $this->assertSame(0, Jugador::query()->where('nombre', 'Cierra')->count());
     }
 
     public function test_sin_retiro_no_hay_manager(): void

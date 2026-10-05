@@ -35,8 +35,8 @@ if ($equipoId) {
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 
     <link rel="stylesheet" href="css/estilos.css">
-    <link rel="stylesheet" href="../css/mini-fit.css">
-    <script src="../js/mini-fit.js"></script>
+    <link rel="stylesheet" href="../css/mini-fit.css?v=4">
+    <script src="../js/mini-fit.js?v=3"></script>
 
     <style>
         :root {
@@ -81,6 +81,6 @@ if ($equipoId) {
         </div>
     </div>
 
-    <script src="js/juego.js"></script>
+    <script src="js/juego.js?v=3"></script>
 </body>
 </html>

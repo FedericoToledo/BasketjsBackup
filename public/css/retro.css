@@ -57,7 +57,7 @@ button, input { font-family: inherit; }
     display: flex;
     justify-content: space-between;
     align-items: center;
-    min-height: 28px;
+    min-height: 36px;
     color: var(--gold);
     font-size: 8px;
 }
@@ -727,8 +727,8 @@ button, input, select, textarea { touch-action: manipulation; }
     font-family: Outfit, sans-serif;
     font-size: 14px;
     font-weight: 700;
-    min-height: 28px;
-    padding: 0;
+    min-height: 36px;
+    padding: 8px 0;
     cursor: pointer;
 }
 
@@ -811,4 +811,140 @@ button, input, select, textarea { touch-action: manipulation; }
     line-height: 1;
     letter-spacing: 0;
     border: 2px solid #120c08;
+}
+
+#app .body {
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+
+#app .home-centro {
+    justify-content: space-between;
+}
+
+#app .login {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+}
+
+#app .login .campo {
+    min-height: 44px;
+    font-size: 16px;
+}
+
+#app .hueco {
+    margin-top: auto;
+}
+
+#app .cita-ir {
+    width: 100%;
+    margin: 0;
+    padding: 10px;
+    border: 3px solid var(--gold);
+    background: rgba(6, 16, 42, 0.9);
+    color: var(--gold);
+    text-align: left;
+    cursor: pointer;
+}
+
+#app .cita-ir .cita {
+    font-size: 15px;
+    line-height: 1.35;
+}
+
+#app .cita-ir small {
+    display: block;
+    margin-top: 6px;
+    color: var(--ink);
+    font-family: Outfit, sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+#app .perfil {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+#app .perfil img {
+    width: 48px;
+    height: 48px;
+    object-fit: cover;
+    border: 3px solid var(--gold);
+    border-radius: 50%;
+}
+
+#app .fila-jugador {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+#app .fila-acciones {
+    display: flex;
+    gap: 8px;
+}
+
+#app .fila-acciones .btn {
+    flex: 1;
+}
+
+#app .opcion.bloqueado {
+    opacity: 0.45;
+}
+
+#app {
+    padding-top: env(safe-area-inset-top);
+}
+
+.screen {
+    padding-bottom: calc(12px + env(safe-area-inset-bottom));
+}
+
+@media (max-width: 360px) {
+    .screen { padding: 8px; gap: 6px; }
+    #app h1 { font-size: 12px; }
+    #app .home-centro h1 { font-size: 14px; }
+    #app .btn, #app a.btn { font-size: 14px; min-height: 44px; }
+    #app .hud b { font-size: 16px; }
+    #app .nums { font-size: 22px; }
+    #app .ovr { font-size: 28px; }
+    #app .nombre-jugador { font-size: 15px; }
+    #app .ficha-top { grid-template-columns: 44px minmax(0, 1fr) 40px; padding: 6px; }
+    #app .logo-circulo { width: 38px; height: 38px; }
+    #app .logo-circulo img { width: 30px; height: 30px; }
+    #app .statline span, #app .trofeo span { font-size: 12px; }
+    #app .statline b, #app .trofeo b { font-size: 16px; }
+    #app .pos-row { gap: 4px; }
+    #app .pos-row .opcion { min-height: 40px; padding: 6px 1px; }
+    #app .pos-row .opcion strong { font-size: 11px; }
+    #app .cita-ir .cita { font-size: 13px; }
+    #app .top .link { font-size: 12px; }
+}
+
+@media (max-height: 700px) {
+    .screen { padding-top: 8px; padding-bottom: calc(8px + env(safe-area-inset-bottom)); gap: 6px; }
+    #app .btn, #app a.btn { min-height: 40px; font-size: 14px; }
+    #app .actions { gap: 6px; }
+    #app h1 { font-size: 12px; }
+    #app .hud { gap: 4px; }
+    #app .hud b { font-size: 16px; }
+    #app .hud div { padding: 2px; }
+    #app .cita-ir { padding: 8px; }
+    #app .cita-ir .cita { font-size: 13px; }
+    #app .nums { font-size: 22px; }
+}
+
+@media (max-height: 520px) {
+    #app .actions.columna {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+    }
+
+    #app .actions.columna .btn:last-child:nth-child(odd) {
+        grid-column: 1 / -1;
+    }
 }

@@ -32,8 +32,52 @@ const TROFEOS_BASE = [
 
 const CITA = "EL TALENTO TE LLEVA LEJOS, EL TRABAJO TE HACE GRANDE";
 
+const FRASES = {
+    inicio: [
+        ["El talento gana partidos. El trabajo en equipo y la inteligencia ganan campeonatos.", "Michael Jordan", "como", "Cómo jugar"],
+        ["No midas el día por la cosecha. Midelo por las semillas que plantaste.", "Robert Louis Stevenson", "empezar", "Armar jugador"],
+        ["La excelencia es un hábito, no un acto.", "Aristóteles", "como", "Cómo jugar"]
+    ],
+    como: [
+        ["El fracaso no es fatal. Lo fatal es no querer cambiar.", "John Wooden", "empezar", "Armar jugador"],
+        ["Jugá cada partido como si fuera el último.", "Michael Jordan", "empezar", "Armar jugador"]
+    ],
+    armar: [
+        ["Sé el que entrenó cuando nadie miraba.", "Michael Jordan", "jugar", "Entrar al lobby"],
+        ["La disciplina es el puente entre la meta y el logro.", "Jim Rohn", "jugar", "Entrar al lobby"]
+    ],
+    lobby: [
+        ["Lo que no está en la ficha, no pasó.", "Gregg Popovich", "cuenta", "Tu cuenta"],
+        ["Los campeones se hacen cuando nadie mira.", "Michael Jordan", "cuenta", "Tu historial"],
+        ["Un líder no nace. Se construye con cada partido.", "Phil Jackson", "entrenar", "Entrenar"]
+    ],
+    entrenar: [
+        ["El sudor de hoy es el calibre de mañana.", "John Wooden", "lobby", "Ver la ficha"],
+        ["No practiques hasta que salga bien. Practicá hasta que no salga mal.", "John Wooden", "lobby", "Ver la ficha"]
+    ],
+    ofertas: [
+        ["La oportunidad baila con quien está en la cancha.", "Phil Jackson", "entrenar", "Subir el calibre"],
+        ["No esperes el llamado. Entrená para merecerlo.", "Gregg Popovich", "entrenar", "Ir al gimnasio"]
+    ],
+    cuenta: [
+        ["El que enseña también crece.", "Phil Jackson", "mercado", "Mercado de jugadores"],
+        ["Tu nombre queda en los que formaste.", "John Wooden", "mercado", "Administrar el plantel"]
+    ],
+    mercado: [
+        ["Primero el novato. Después, los que ya saben.", "Gregg Popovich", "cuenta", "Volver a la cuenta"],
+        ["Un buen manager pone el ego en el banco.", "Phil Jackson", "cuenta", "Tu plantel"]
+    ],
+    retiro: [
+        ["El final de una carrera puede ser el principio de otra.", "Phil Jackson", "ser-manager", "Seguir de manager"],
+        ["No es el fin del camino. Es un cambio de banco.", "Gregg Popovich", "ser-manager", "Seguir de manager"]
+    ]
+};
+
 let equipos = [];
+let estrellas = [];
 let state = estadoInicial();
+let authModo = "entrar";
+let borrador = { nombre: "", correo: "", clave: "" };
 
 function estadoInicial() {
     return {
@@ -78,10 +122,22 @@ function estadoInicial() {
         esperando: null,
         extra: false,
         partidos: 0,
+        partidas: 0,
         victorias: 0,
         renegocioEn: null,
         retirado: false,
-        cuenta: { google: false, user: null, jugadores: [] }
+        tipo: "novato",
+        dificultad: "baja",
+        estrellaId: null,
+        ligaOrigen: null,
+        clubOrigen: null,
+        ppgPrevio: null,
+        rpgPrevio: null,
+        apgPrevio: null,
+        notaPrevia: "",
+        ligaMercado: "NCAA",
+        confirmarCierre: false,
+        cuenta: { google: false, user: null, jugadores: [], historial: { carreras: 0, partidas: 0, partidos: 0, victorias: 0 } }
     };
 }
 
@@ -269,7 +325,7 @@ function cargarLocal() {
     try {
         const guardado = JSON.parse(localStorage.getItem("rookie-jugador") || "null");
         if (!guardado || !guardado.nombre) return;
-        const fasesJuego = ["carrera", "retiro", "ficha", "hub", "lobby", "entrenar", "ofertas", "cuenta", "manager"];
+        const fasesJuego = ["carrera", "retiro", "ficha", "hub", "lobby", "entrenar", "ofertas", "cuenta", "manager", "mercado"];
         if (fasesJuego.includes(guardado.fase)) {
             state = Object.assign(estadoInicial(), guardado);
         }
@@ -281,7 +337,7 @@ function cargarLocal() {
 function migrar() {
     if (state.fase === "hub" || state.fase === "carrera") state.fase = "lobby";
     if (state.fase === "retiro" && !state.retirado) state.fase = "lobby";
-    const seguir = ["lobby", "entrenar", "ofertas", "ficha", "retiro", "cuenta", "manager"];
+    const seguir = ["lobby", "entrenar", "ofertas", "ficha", "retiro", "cuenta", "manager", "mercado"];
     if (!seguir.includes(state.fase)) return;
     if (!state.stats && state.posicion) state.stats = Object.assign({}, BASES[state.posicion]);
     if (state.hinchada == null) state.hinchada = state.quimica || 58;
@@ -301,9 +357,17 @@ function migrar() {
     state.calendario = state.calendario || [];
     if (state.calibre == null) state.calibre = state.equipoId ? 72 : 46;
     state.partidos = state.partidos || 0;
+    state.partidas = state.partidas || state.partidos || 0;
     state.victorias = state.victorias || 0;
     state.retirado = !!state.retirado;
-    if (!state.cuenta) state.cuenta = { google: false, user: null, jugadores: [] };
+    state.tipo = state.tipo || "novato";
+    state.dificultad = state.dificultad || "baja";
+    state.ligaMercado = state.ligaMercado || "NCAA";
+    state.confirmarCierre = !!state.confirmarCierre;
+    if (!state.cuenta) state.cuenta = { google: false, user: null, jugadores: [], historial: { carreras: 0, partidas: 0, partidos: 0, victorias: 0 } };
+    if (!state.cuenta.historial) state.cuenta.historial = { carreras: 0, partidas: 0, partidos: 0, victorias: 0 };
+    if (state.fase === "manager") state.fase = "mercado";
+    if (state.fase === "ficha") state.fase = "lobby";
 }
 
 function validarArmar() {
@@ -788,7 +852,17 @@ function payload() {
         partidos: state.partidos,
         victorias: state.victorias,
         fase: state.fase,
-        retirado: !!state.retirado
+        retirado: !!state.retirado,
+        partidas: state.partidas || 0,
+        tipo: state.tipo || "novato",
+        dificultad: state.dificultad || "baja",
+        estrellaId: state.estrellaId || null,
+        ligaOrigen: state.ligaOrigen || null,
+        clubOrigen: state.clubOrigen || null,
+        ppgPrevio: state.ppgPrevio,
+        rpgPrevio: state.rpgPrevio,
+        apgPrevio: state.apgPrevio,
+        notaPrevia: state.notaPrevia || ""
     };
 }
 
@@ -836,12 +910,38 @@ function subirStat(juego, cuanto) {
     return { velocidad: "Velocidad", control: "Control", tiro: "Tiro", defensa: "Defensa" }[clave];
 }
 
+function pasoCalibre(gano) {
+    const dificultad = state.dificultad || "baja";
+    if (dificultad === "alta") return gano ? 4 : 2;
+    if (dificultad === "media") return gano ? 7 : 3;
+    return gano ? 10 : 4;
+}
+
+function nivelManager() {
+    const lista = (state.cuenta && state.cuenta.jugadores) || [];
+    let maximo = 0;
+    lista.forEach((jugador) => {
+        maximo = Math.max(maximo, Number(jugador.calibre) || 0);
+    });
+    if (state.nombre) maximo = Math.max(maximo, Number(state.calibre) || 0);
+    if (!maximo) return 1;
+    return 1 + Math.max(0, Math.floor((maximo - 46) / 8));
+}
+
+function avisoNivel() {
+    const user = state.cuenta && state.cuenta.user;
+    if (!user || !user.manager) return "";
+    user.nivel = nivelManager();
+    return " Manager nivel " + user.nivel + ".";
+}
+
 function cobrarEntreno(gano, juego) {
     state.esperando = null;
+    state.partidas = (state.partidas || 0) + 1;
     const sube = gano ? 3 : 1;
     const nombre = subirStat(juego, sube) || "Habilidad";
-    state.calibre = Math.min(99, (state.calibre || 46) + (gano ? 10 : 4));
-    state.flash = nombre + " +" + sube + ". Calibre " + state.calibre + ".";
+    state.calibre = Math.min(99, (state.calibre || 46) + pasoCalibre(gano));
+    state.flash = nombre + " +" + sube + ". Calibre " + state.calibre + "." + avisoNivel();
     state.fase = "lobby";
     persistir();
     render();
@@ -850,16 +950,18 @@ function cobrarEntreno(gano, juego) {
 function cobrarPrima(gano) {
     state.esperando = null;
     state.partidos = (state.partidos || 0) + 1;
+    state.partidas = (state.partidas || 0) + 1;
     if (gano) {
         state.victorias = (state.victorias || 0) + 1;
         const prima = (state.equipoId ? 0.4 : 0.15) + (state.calibre || 46) / 200;
         state.plusSalario += prima;
         state.hinchada = clamp(state.hinchada + 8, 0, 100);
         state.puntosCarrera += 16;
-        state.calibre = Math.min(99, (state.calibre || 46) + 2);
+        const extra = state.dificultad === "alta" ? 1 : 2;
+        state.calibre = Math.min(99, (state.calibre || 46) + extra);
         state.flash = state.equipoId
-            ? "Prima: US$ " + prima.toFixed(1) + "M. El sueldo queda en US$ " + salario() + "M."
-            : "Te vieron en la calle. Esa prima entra cuando firmes.";
+            ? "Prima: US$ " + prima.toFixed(1) + "M. El sueldo queda en US$ " + salario() + "M." + avisoNivel()
+            : "Te vieron en la calle. Esa prima entra cuando firmes." + avisoNivel();
         if (state.equipoId && state.victorias % 4 === 0) {
             state.plusSalario += 0.4;
             state.flash += " Renovación del contrato.";
@@ -975,31 +1077,110 @@ function cabeza(derecha) {
     return `<div class="top"><b class="brand">THE ROOKIE</b><div class="paso">${derecha}</div></div>`;
 }
 
+function fraseBtn(clave, hueco) {
+    const lista = FRASES[clave] || FRASES.inicio;
+    const semilla = hashTexto(clave + "|" + (state.nombre || "") + "|" + (state.partidas || 0));
+    const frase = lista[semilla % lista.length];
+    const boton = `<button class="cita-ir" data-accion="${esc(frase[2])}"><span class="cita">"${esc(frase[0])}"</span><small>${esc(frase[1])} · ${esc(frase[3])}</small></button>`;
+    if (hueco === false) return boton;
+    return `<div class="hueco">${boton}</div>`;
+}
+
+function lineaNumeros(ppg, rpg, apg) {
+    const partes = [];
+    if (ppg != null && ppg !== "") partes.push(Number(ppg).toFixed(1) + " PTS");
+    if (rpg != null && rpg !== "") partes.push(Number(rpg).toFixed(1) + " REB");
+    if (apg != null && apg !== "") partes.push(Number(apg).toFixed(1) + " AST");
+    return partes.join(" · ");
+}
+
+function textoDificultad(dificultad) {
+    if (dificultad === "alta") return "Alta";
+    if (dificultad === "media") return "Media";
+    return "Fácil";
+}
+
+function ligaAbierta(liga) {
+    const pide = liga === "NBA" ? 6 : (liga === "LNB" ? 4 : 2);
+    const user = state.cuenta && state.cuenta.user;
+    if (!user || !user.manager) return false;
+    return nivelManager() >= pide;
+}
+
+function bloqueFicha() {
+    const estilo = estiloActual();
+    const [nombreRol, detalleRol] = rol();
+    const s = state.stats || BASES[state.posicion] || BASES.PG;
+    const skills = [
+        ["CALIBRE", state.calibre || 46],
+        ["TIRO", s.tiro],
+        ["VELOCIDAD", s.velocidad],
+        ["FUERZA", s.fuerza],
+        ["CONTROL", s.control],
+        ["DEFENSA", s.defensa]
+    ];
+    const htmlSkills = skills.map(([nombre, valor]) =>
+        `<div class="statline"><span>${nombre}</span><b class="num">${valor}</b></div>`
+    ).join("");
+    const ganadas = state.trofeos.filter((trofeo) => trofeo.cantidad > 0);
+    const copas = (ganadas.length ? ganadas : state.trofeos.slice(0, 4)).map((trofeo) =>
+        `<div class="trofeo"><span>${esc(trofeo.nombre)}</span><b class="num">x${trofeo.cantidad}</b></div>`
+    ).join("");
+    const tags = (estilo ? [estilo.titulo].concat(estilo.tags) : []).concat(state.habilidades)
+        .map((tag) => `<i>${esc(tag)}</i>`).join("");
+    const previa = lineaNumeros(state.ppgPrevio, state.rpgPrevio, state.apgPrevio);
+    const antes = state.tipo === "profesional"
+        ? `<p class="nota">Antes de contratarte${state.clubOrigen ? ", en " + esc(state.clubOrigen) : ""}: ${esc(previa || state.notaPrevia || "línea previa sin publicar")}.</p>`
+        : "";
+    return `<div class="caja"><h2>ATRIBUTOS</h2><div class="attrs">${htmlSkills}</div></div>
+        <div class="caja"><h2>ROL · ${state.equipoId ? "US$ " + salario() + "M" : "SIN CONTRATO"}</h2><strong class="gold">${esc(nombreRol)}</strong><p class="nota">${esc(detalleRol)}</p><div class="tags">${tags}</div></div>
+        <div class="caja"><h2>VITRINA</h2><div class="copas">${copas}</div>${ganadas.length ? "" : `<p class="nota">La vitrina espera el primer título.</p>`}</div>
+        ${antes}`;
+}
+
+function historialVisible() {
+    const cuenta = state.cuenta || {};
+    if (cuenta.user && cuenta.historial) return cuenta.historial;
+    return {
+        carreras: state.nombre ? 1 : 0,
+        partidas: state.partidas || 0,
+        partidos: state.partidos || 0,
+        victorias: state.victorias || 0
+    };
+}
+
+function formularioAcceso() {
+    const alta = authModo === "alta";
+    return `<div class="login">
+        ${alta ? `<input class="campo" id="alta-nombre" maxlength="60" autocomplete="name" placeholder="Tu nombre" value="${esc(borrador.nombre)}">` : ""}
+        <input class="campo" id="correo" type="email" maxlength="190" autocomplete="username" placeholder="Email" value="${esc(borrador.correo)}">
+        <input class="campo" id="clave" type="password" maxlength="64" autocomplete="${alta ? "new-password" : "current-password"}" placeholder="Contraseña" value="${esc(borrador.clave)}">
+        <button class="btn" type="button" data-accion="${alta ? "crear-correo" : "entrar-correo"}">${alta ? "Crear cuenta" : "Entrar"}</button>
+        <button class="btn ghost" type="button" data-accion="${alta ? "modo-entrar" : "modo-alta"}">${alta ? "Ya tengo cuenta" : "Crear cuenta con email"}</button>
+        <a class="btn ghost" href="/auth/google">Entrar con Google</a>
+    </div>`;
+}
+
 function pantallaInicio() {
     const cuenta = state.cuenta || { google: false, user: null };
-    const entrar = !cuenta.user && cuenta.google
-        ? `<a class="btn ghost" href="/auth/google">Entrar con Google</a>`
-        : "";
-    const salir = cuenta.user
-        ? `<button class="btn ghost" data-accion="salir">Salir</button>`
-        : "";
-    const saludo = cuenta.user ? `<p class="nota">${esc(cuenta.user.nombre)}</p>` : "";
+    const saludo = cuenta.user ? `<p class="nota">${esc(cuenta.user.nombre)} · ${esc(cuenta.user.email || "")}</p>` : "";
+    const acceso = cuenta.user ? "" : formularioAcceso();
     return `<section class="screen">
         ${cabeza("8 BIT")}
         <div class="body">
             <div class="home-centro">
+                ${fraseBtn("inicio", false)}
                 <p class="lead">Arrancás en la vereda, sin club. El calibre abre la NBA.</p>
                 <h1>CAMINO A LA<br><span>LEYENDA</span></h1>
                 <p class="cita">"No es solo un juego, es mi vida"</p>
                 ${saludo}
+                ${acceso}
                 ${state.flash ? `<p class="flash">${esc(state.flash)}</p>` : ""}
             </div>
         </div>
         <div class="actions columna">
             <button class="btn" data-accion="empezar">Comenzar</button>
             <button class="btn ghost" data-accion="como">¿Cómo jugar?</button>
-            ${entrar}
-            ${salir}
         </div>
     </section>`;
 }
@@ -1015,6 +1196,7 @@ function pantallaComo() {
                 <div class="caja"><h2>03 OFERTAS</h2><p class="lead">Un club llama si tu calibre llega a su piso. Podés cambiar y cobrar más.</p></div>
                 <div class="caja"><h2>04 PARTIDO</h2><p class="lead">Si ganás, hay prima. Cada tanto el contrato se renueva.</p></div>
             </div>
+            ${fraseBtn("como")}
         </div>
         <div class="actions">
             <button class="btn" data-accion="empezar">Armar jugador</button>
@@ -1045,6 +1227,7 @@ function pantallaArmar() {
             <h2>HABILIDADES ${state.habilidades.length}/2</h2>
             <div class="chips">${botonesHab}</div>
             <p class="aviso ${state.error ? "on" : ""}">${esc(state.error)}</p>
+            ${fraseBtn("armar")}
         </div>
         <div class="actions">
             <button class="btn ghost" data-accion="inicio">Volver</button>
@@ -1069,13 +1252,13 @@ function pantallaLobby() {
     const ofertas = equiposAlAlcance();
     const juego = juegoPartido();
     return `<section class="screen">
-        ${cabeza(`<button class="link" data-accion="cuenta">CUENTA</button><button class="link" data-accion="ficha">FICHA</button>`)}
+        ${cabeza(`<button class="link" data-accion="cuenta">CUENTA</button>`)}
         <div class="body">
             <div class="ficha-top">
                 <div class="ovr">${ovr()}<small>${esc(state.posicion)}</small></div>
                 <div>
-                    <div class="nombre-jugador">${esc(state.nombre.trim())}</div>
-                    <p class="subficha">${esc(POSICIONES[state.posicion] || "")} · ${esc(etiquetaClub(eq))} · ${state.edad} años</p>
+                    <div class="nombre-jugador">${esc(state.nombre.trim())} · ${esc(state.dorsal)}</div>
+                    <p class="subficha">${esc(POSICIONES[state.posicion] || "")} · ${esc(etiquetaClub(eq))} · ${state.edad} años<br>${esc(state.ciudad)} · ${(state.altura / 100).toFixed(2)} m · ${state.peso} kg</p>
                 </div>
                 ${marcaLogo(eq)}
             </div>
@@ -1083,6 +1266,8 @@ function pantallaLobby() {
             ${state.flash ? `<p class="flash">${esc(state.flash)}</p>` : ""}
             <p class="lead">${esc(textoLobby())}</p>
             <p class="nums">${box.ppg}<small>PTS</small> ${box.reb}<small>REB</small> ${box.ast}<small>AST</small></p>
+            ${bloqueFicha()}
+            ${fraseBtn("lobby")}
         </div>
         <div class="actions columna">
             <button class="btn" data-accion="entrenar">Entrenar</button>
@@ -1106,7 +1291,8 @@ function pantallaEntrenar() {
         ${cabeza("GYM")}
         <div class="body">
             <h1>ENTRENAR</h1>
-            <p class="lead">Ganar suma 3 a la habilidad y 10 de calibre. Perder suma 1 y 4.</p>
+            <p class="lead">${esc(state.nombre || "Tu jugador")} · dificultad ${esc(textoDificultad(state.dificultad))}. Ganar suma habilidad y calibre. En la NBA el salto es más corto.</p>
+            ${fraseBtn("entrenar")}
         </div>
         <div class="actions columna">
             ${botones}
@@ -1131,6 +1317,7 @@ function pantallaOfertas() {
         <div class="body">
             <h1>OFERTAS</h1>
             <p class="lead">${esc(lead)}</p>
+            ${fraseBtn("ofertas")}
         </div>
         <div class="actions columna">
             ${botones}
@@ -1214,6 +1401,9 @@ function pantallaFicha() {
 
 function pantallaRetiro() {
     const marca = state.traidor ? "Traidor" : (state.mercenario ? "Mercenario" : "Ídolo");
+    const aviso = state.confirmarCierre
+        ? `<p class="flash">Cerrar la cuenta borra tu perfil y todas las carreras.</p>`
+        : `<p class="lead">La carrera de jugador terminó. ¿Cerrás la cuenta o seguís de manager?</p>`;
     return `<section class="screen">
         ${cabeza("FIN")}
         <div class="body">
@@ -1228,9 +1418,13 @@ function pantallaRetiro() {
                 <div class="statline"><span>El Elegido</span><b class="num">${state.rival.puntos} pts</b></div>
                 <div class="statline"><span>Calibre</span><b class="num">${state.calibre || 46}</b></div>
                 <div class="statline"><span>Marca</span><b class="num">${esc(marca)}</b></div>
-                <div class="statline"><span>Salario</span><b class="num">US$ ${salario()}M</b></div>
+                <div class="statline"><span>Partidas</span><b class="num">${state.partidas || 0}</b></div>
             </div>
+            ${state.stats ? bloqueFicha() : ""}
             <p class="cita">${esc(fraseLeyenda())}</p>
+            ${aviso}
+            ${state.flash ? `<p class="flash">${esc(state.flash)}</p>` : ""}
+            ${fraseBtn("retiro")}
         </div>
         <div class="actions columna">
             ${botonesRetiro()}
@@ -1241,71 +1435,119 @@ function pantallaRetiro() {
 function botonesRetiro() {
     const cuenta = state.cuenta || { google: false, user: null, jugadores: [] };
     const user = cuenta.user;
-    if (user && user.manager) {
-        return `<button class="btn" data-accion="manager">Mis jugadores</button>
-            <button class="btn ghost" data-accion="nuevo">Nuevo jugador</button>`;
+    const seguir = `<button class="btn" data-accion="ser-manager">Seguir de manager</button>`;
+    if (user && state.confirmarCierre) {
+        return `<button class="btn" data-accion="cerrar-cuenta">Sí, cerrar cuenta</button>
+            <button class="btn ghost" data-accion="cuenta">No, volver</button>`;
     }
     if (user) {
-        return `<button class="btn" data-accion="ser-manager">Ser manager</button>`;
+        const plantel = user.manager ? `<button class="btn ghost" data-accion="cuenta">Administrar plantel</button>` : "";
+        return `${seguir}
+            ${plantel}
+            <button class="btn ghost" data-accion="preguntar-cierre">Cerrar cuenta</button>`;
     }
     const google = cuenta.google
-        ? `<a class="btn" href="/auth/google">Guardar con Google</a>`
+        ? `<a class="btn ghost" href="/auth/google">Entrar con Google</a>`
         : "";
-    return `${google}<button class="btn" data-accion="otra-vez">Jugar de nuevo</button>`;
+    return `${seguir}
+        ${google}
+        <button class="btn ghost" data-accion="cerrar-local">Cerrar esta partida</button>`;
 }
 
 function pantallaCuenta() {
-    const cuenta = state.cuenta || { google: false, user: null, jugadores: [] };
+    const cuenta = state.cuenta || { google: false, user: null, jugadores: [], historial: {} };
     const user = cuenta.user;
-    let lead = "Google todavía no está configurado. La carrera sigue en este teléfono.";
-    let extra = "";
-    if (user) {
-        lead = user.nombre + (user.manager ? " · Manager" : "");
-        extra = user.manager ? `<button class="btn" data-accion="manager">Mis jugadores</button>` : "";
-        extra += `<button class="btn ghost" data-accion="salir">Salir</button>`;
-    } else if (cuenta.google) {
-        lead = "Entrá con Google para guardar esta carrera en tu cuenta.";
-        extra = `<a class="btn" href="/auth/google">Guardar con Google</a>`;
+    const historia = historialVisible();
+    const avatar = user && user.avatar
+        ? `<img src="${esc(user.avatar)}" alt="">`
+        : `<b class="monograma">${esc((user && user.nombre || "TU").slice(0, 2).toUpperCase())}</b>`;
+    let lead = "Sin cuenta, la carrera vive en este teléfono. En el inicio podés entrar con Google o con email.";
+    if (user && user.manager) {
+        lead = "Manager nivel " + (user.nivel || nivelManager()) + ". El calibre de tu jugador te sube. NCAA en 2, LNB en 4, NBA en 6.";
+    } else if (user) {
+        lead = "Perfil de jugador. Cuando te retires, esta cuenta puede seguir como manager.";
     }
+    const filas = (cuenta.jugadores || []).map((jugador) => {
+        const marca = jugador.retiro ? "RETIRO" : "ACTIVO";
+        const entrenar = jugador.retiro ? "" : `<button class="btn" data-entrenar="${jugador.id}">Entrenar</button>`;
+        const partido = jugador.retiro ? "" : `<a class="btn ghost" data-partido="${jugador.id}" href="${esc(linkJuego(juegoDe(jugador)))}">Partido</a>`;
+        return `<div class="caja fila-jugador">
+            <button class="opcion" data-jugador="${jugador.id}"><strong>${esc(jugador.nombre)} · ${esc(jugador.posicion)}</strong><span>${esc(marca)} · calibre ${jugador.calibre || 46}${jugador.liga ? " · " + esc(jugador.liga) : ""} · ${jugador.partidas || 0} partidas</span></button>
+            <div class="fila-acciones">${entrenar}${partido}</div>
+        </div>`;
+    }).join("");
+    const entrar = !user ? `<button class="btn" data-accion="portada">Entrar o crear cuenta</button>` : "";
+    const salir = user ? `<button class="btn ghost" data-accion="salir">Cerrar sesión</button>` : "";
+    const mercado = user && user.manager ? `<button class="btn" data-accion="mercado">Mercado</button><button class="btn" data-accion="nuevo">Nueva estrella</button>` : "";
+    const retirar = state.nombre && !state.retirado ? `<button class="btn ghost" data-accion="retirar">Colgar los botines</button>` : "";
     return `<section class="screen">
         ${cabeza("CUENTA")}
-        <div class="body recorte">
+        <div class="body">
             <h1>TU<br><span>CUENTA</span></h1>
+            <div class="perfil">${avatar}<div><strong class="gold">${esc(user ? user.nombre : "Invitado")}</strong><p class="nota">${esc(user ? user.email : "Este teléfono")}</p></div></div>
+            <div class="caja">
+                <h2>THE ROOKIE</h2>
+                <div class="statline"><span>Veces que jugaste</span><b class="num">${historia.partidas || 0}</b></div>
+                <div class="statline"><span>Carreras</span><b class="num">${historia.carreras || 0}</b></div>
+                <div class="statline"><span>Partidos</span><b class="num">${historia.partidos || 0}</b></div>
+                <div class="statline"><span>Victorias</span><b class="num">${historia.victorias || 0}</b></div>
+            </div>
             <p class="lead">${esc(lead)}</p>
             ${state.flash ? `<p class="flash">${esc(state.flash)}</p>` : ""}
-            <p class="nota">Colgar los botines cierra esta carrera. Después podés ser manager y crear otro jugador.</p>
+            ${filas || `<p class="nota">Todavía no hay jugadores guardados en la cuenta.</p>`}
+            ${fraseBtn("cuenta")}
         </div>
         <div class="actions columna">
-            ${extra}
-            <button class="btn ghost" data-accion="retirar">Colgar los botines</button>
+            ${mercado}
+            ${entrar}
+            ${retirar}
+            ${salir}
             <button class="btn ghost" data-accion="lobby">Volver</button>
         </div>
     </section>`;
 }
 
-function pantallaManager() {
-    const cuenta = state.cuenta || { jugadores: [] };
-    const lista = (cuenta.jugadores || []).map((jugador) =>
-        `<button class="btn eleccion" data-jugador="${jugador.id}">${esc(jugador.nombre)} · ${esc(jugador.posicion)}${jugador.retiro ? " · RETIRO" : ""}</button>`
+function juegoDe(jugador) {
+    return ["reflejos", "memoria", "simon", "defensa"][(jugador.partidos || 0) % 4];
+}
+
+function pantallaMercado() {
+    const liga = state.ligaMercado || "NCAA";
+    const nivel = nivelManager();
+    const abierta = ligaAbierta(liga);
+    const pide = liga === "NBA" ? 6 : (liga === "LNB" ? 4 : 2);
+    const chips = ["NCAA", "LNB", "NBA"].map((nombre) =>
+        `<button class="chip ${liga === nombre ? "sel" : ""}" data-set="ligaMercado" data-valor="${nombre}">${nombre}</button>`
     ).join("");
+    const lista = estrellas.filter((estrella) => estrella.liga === liga).map((estrella) => {
+        const linea = lineaNumeros(estrella.ppg, estrella.rpg, estrella.apg) || estrella.nota;
+        const traba = abierta ? "" : " bloqueado";
+        return `<button class="opcion${traba}" data-fichar="${esc(estrella.id)}" ${abierta ? "" : "disabled"}><strong>${estrella.puesto}. ${esc(estrella.nombre)} · ${estrella.calibre}</strong><span>${esc(estrella.club)} · ${esc(estrella.posicion)} · ${esc(textoDificultad(estrella.dificultad))}</span><span>${esc(linea)}</span></button>`;
+    }).join("");
+    const aviso = abierta
+        ? "Te contratan con la línea que ya traían. Después los entrenás junto con tus estrellas."
+        : "Esta liga abre en nivel " + pide + ". Hoy estás en nivel " + nivel + ". Subí el calibre de tu novato.";
     return `<section class="screen">
-        ${cabeza("MANAGER")}
-        <div class="body recorte">
-            <h1>MIS<br><span>JUGADORES</span></h1>
+        ${cabeza("MERCADO")}
+        <div class="body">
+            <h1>TE<br><span>CONTRATAN</span></h1>
+            <p class="lead">Manager nivel ${nivel}. ${esc(aviso)}</p>
             ${state.flash ? `<p class="flash">${esc(state.flash)}</p>` : ""}
-            ${lista || `<p class="lead">Todavía no hay jugadores en esta cuenta.</p>`}
+            <div class="chips">${chips}</div>
+            <div class="opciones">${lista || `<p class="nota">No pude leer el mercado.</p>`}</div>
+            ${fraseBtn("mercado")}
         </div>
         <div class="actions columna">
-            <button class="btn" data-accion="nuevo">Nuevo jugador</button>
-            <button class="btn ghost" data-accion="volver-manager">Volver</button>
+            <button class="btn" data-accion="nuevo">Crear estrella</button>
+            <button class="btn ghost" data-accion="cuenta">Volver a la cuenta</button>
         </div>
     </section>`;
 }
 
 function contenido() {
-    if (state.fase === "manager") return pantallaManager();
+    if (state.fase === "mercado" || state.fase === "manager") return pantallaMercado();
     if (state.fase === "cuenta") return pantallaCuenta();
-    if (state.fase === "ficha") return pantallaFicha();
+    if (state.fase === "ficha") return pantallaLobby();
     if (state.retirado) return pantallaRetiro();
     if (state.fase === "entrenar") return pantallaEntrenar();
     if (state.fase === "ofertas") return pantallaOfertas();
@@ -1330,6 +1572,9 @@ function ligar() {
             state.error = "";
         });
     }
+    raiz.querySelectorAll("#alta-nombre, #correo, #clave").forEach((campo) => {
+        campo.addEventListener("input", leerBorrador);
+    });
     raiz.querySelectorAll("[data-accion]").forEach((nodo) => {
         nodo.addEventListener("click", async () => {
             const accion = nodo.dataset.accion;
@@ -1344,10 +1589,23 @@ function ligar() {
                 state.error = "";
                 render();
             }
-            if (accion === "inicio") {
+            if (accion === "inicio" || accion === "portada") {
+                state.fase = "";
                 state.paso = "inicio";
+                state.retirado = false;
                 state.error = "";
+                if (accion === "portada") state.flash = "";
                 render();
+            }
+            if (accion === "modo-alta" || accion === "modo-entrar") {
+                leerBorrador();
+                authModo = accion === "modo-alta" ? "alta" : "entrar";
+                state.flash = "";
+                render();
+            }
+            if (accion === "entrar-correo" || accion === "crear-correo") {
+                leerBorrador();
+                await enviarAcceso(accion === "crear-correo");
             }
             if (accion === "jugar") comenzarAJugar();
             if (accion === "ficha") {
@@ -1356,8 +1614,15 @@ function ligar() {
                 render();
             }
             if (accion === "lobby" || accion === "volver-carrera") {
-                state.fase = "lobby";
                 state.flash = "";
+                if (!state.nombre) {
+                    state.fase = "crear";
+                    state.paso = "inicio";
+                } else if (state.retirado) {
+                    state.fase = "retiro";
+                } else {
+                    state.fase = "lobby";
+                }
                 guardarLocal();
                 render();
             }
@@ -1391,6 +1656,8 @@ function ligar() {
                 render();
             }
             if (accion === "cuenta") {
+                state.confirmarCierre = false;
+                await refrescarCuenta();
                 state.fase = "cuenta";
                 state.flash = "";
                 guardarLocal();
@@ -1404,39 +1671,95 @@ function ligar() {
                 render();
             }
             if (accion === "ser-manager") {
+                if (!state.cuenta || !state.cuenta.user) {
+                    state.flash = "Para seguir de manager tenés que entrar con tu cuenta.";
+                    render();
+                    return;
+                }
                 const res = await apiFetch("/api/manager", { method: "POST", body: "{}" });
                 if (res.datos && res.datos.ok) {
-                    if (state.cuenta && state.cuenta.user) state.cuenta.user.manager = true;
+                    state.cuenta.user.manager = true;
                     await refrescarCuenta();
-                    state.fase = "manager";
-                    state.flash = "Ahora sos manager. Podés crear otro jugador.";
+                    const hayVivo = (state.cuenta.jugadores || []).some((jugador) => !jugador.retiro);
+                    if (!hayVivo) {
+                        const listo = await prepararNuevo();
+                        if (!listo) return;
+                        state.flash = "Sos manager nivel " + nivelManager() + ". Armá a tu novato y subile el calibre.";
+                        render();
+                        return;
+                    }
+                    state.fase = "cuenta";
+                    state.flash = "Seguís de manager. Elegí a quién entrenar.";
                 } else {
                     state.flash = (res.datos && res.datos.error) || "Primero tenés que terminar una carrera.";
                 }
                 guardarLocal();
                 render();
             }
-            if (accion === "manager") {
+            if (accion === "manager" || accion === "mercado") {
+                if (!state.cuenta || !state.cuenta.user || !state.cuenta.user.manager) {
+                    state.flash = "El mercado abre cuando seguís de manager.";
+                    state.fase = "cuenta";
+                    render();
+                    return;
+                }
                 await refrescarCuenta();
-                state.fase = "manager";
+                state.fase = "mercado";
                 state.flash = "";
                 guardarLocal();
+                render();
+            }
+            if (accion === "preguntar-cierre") {
+                state.confirmarCierre = true;
+                state.fase = "retiro";
+                state.retirado = true;
+                render();
+            }
+            if (accion === "cerrar-cuenta") {
+                const res = await apiFetch("/api/cuenta/cerrar", { method: "POST", body: "{}" });
+                if (!res.datos || !res.datos.ok) {
+                    state.flash = (res.datos && res.datos.error) || "No pude cerrar la cuenta.";
+                    render();
+                    return;
+                }
+                localStorage.removeItem("rookie-jugador");
+                localStorage.removeItem("rookie-recompensa");
+                location.href = "/jugar.php";
+            }
+            if (accion === "cerrar-local") {
+                const cuenta = state.cuenta;
+                localStorage.removeItem("rookie-jugador");
+                localStorage.removeItem("rookie-recompensa");
+                state = estadoInicial();
+                state.cuenta = cuenta;
+                state.flash = "Partida cerrada en este teléfono.";
                 render();
             }
             if (accion === "nuevo") {
                 await prepararNuevo();
             }
             if (accion === "volver-manager") {
-                state.fase = state.retirado ? "retiro" : "lobby";
+                state.fase = "cuenta";
                 state.flash = "";
                 guardarLocal();
                 render();
             }
             if (accion === "salir") {
+                borrador = { nombre: "", correo: "", clave: "" };
+                authModo = "entrar";
                 try {
                     await apiFetch("/auth/salir", { method: "POST", body: "{}" });
-                } catch (falla) { /* Volvemos al juego igual. */ }
-                location.href = "/jugar.php";
+                } catch (falla) { /* Volvemos a la portada igual. */ }
+                try {
+                    const guardado = JSON.parse(localStorage.getItem("rookie-jugador") || "null");
+                    if (guardado) {
+                        guardado.fase = "";
+                        guardado.paso = "inicio";
+                        guardado.retirado = false;
+                        localStorage.setItem("rookie-jugador", JSON.stringify(guardado));
+                    }
+                } catch (falla) { /* Sin partida en este teléfono. */ }
+                location.href = "/";
             }
         });
     });
@@ -1477,14 +1800,40 @@ function ligar() {
     });
     raiz.querySelectorAll("[data-jugador]").forEach((nodo) => {
         nodo.addEventListener("click", async () => {
-            const res = await apiFetch("/api/carrera/" + nodo.dataset.jugador);
+            await abrirJugador(nodo.dataset.jugador, "lobby");
+        });
+    });
+    raiz.querySelectorAll("[data-entrenar]").forEach((nodo) => {
+        nodo.addEventListener("click", async () => {
+            await abrirJugador(nodo.dataset.entrenar, "entrenar");
+        });
+    });
+    raiz.querySelectorAll("[data-partido]").forEach((nodo) => {
+        nodo.addEventListener("click", async (evento) => {
+            evento.preventDefault();
+            const href = nodo.getAttribute("href");
+            await abrirJugador(nodo.dataset.partido, "lobby");
+            state.esperando = "partido";
+            guardarLocal();
+            if (href) location.href = href;
+        });
+    });
+    raiz.querySelectorAll("[data-fichar]").forEach((nodo) => {
+        nodo.addEventListener("click", async () => {
+            if (nodo.disabled) return;
+            const res = await apiFetch("/api/manager/fichar", {
+                method: "POST",
+                body: JSON.stringify({ id: nodo.dataset.fichar })
+            });
             if (res.datos && res.datos.ok) {
-                aplicarFicha(res.datos.ficha);
-                render();
+                await refrescarCuenta();
+                state.flash = "Firmó con vos. Entrenalo desde la cuenta.";
+                state.fase = "cuenta";
             } else {
-                state.flash = (res.datos && res.datos.error) || "No pude abrir ese jugador.";
-                render();
+                state.flash = (res.datos && res.datos.error) || "No pude fichar a ese jugador.";
             }
+            guardarLocal();
+            render();
         });
     });
     raiz.querySelectorAll("[data-juego]").forEach((nodo) => {
@@ -1495,6 +1844,53 @@ function ligar() {
             guardarLocal();
         });
     });
+}
+
+function leerBorrador() {
+    const nombre = document.getElementById("alta-nombre");
+    const correo = document.getElementById("correo");
+    const clave = document.getElementById("clave");
+    if (nombre) borrador.nombre = nombre.value;
+    if (correo) borrador.correo = correo.value;
+    if (clave) borrador.clave = clave.value;
+}
+
+async function enviarAcceso(alta) {
+    const cuerpo = {
+        email: borrador.correo.trim(),
+        password: borrador.clave
+    };
+    if (alta) cuerpo.nombre = borrador.nombre.trim();
+    let res;
+    try {
+        res = await apiFetch(alta ? "/auth/registrar" : "/auth/entrar", {
+            method: "POST",
+            body: JSON.stringify(cuerpo)
+        });
+    } catch (falla) {
+        state.flash = "No hay conexión con el servidor.";
+        render();
+        return;
+    }
+    if (!res.okHttp || !res.datos || !res.datos.ok) {
+        state.flash = textoError(res, alta ? "No pude crear la cuenta." : "No pude entrar.");
+        render();
+        return;
+    }
+    borrador.clave = "";
+    const marca = alta ? (res.datos.correo ? "correo" : "correo-no") : "ok";
+    location.href = "/?ingreso=" + marca;
+}
+
+function textoError(res, fallback) {
+    const datos = (res && res.datos) || {};
+    if (datos.error) return datos.error;
+    if (datos.errors) {
+        const primero = Object.values(datos.errors)[0];
+        if (Array.isArray(primero) && primero[0]) return String(primero[0]);
+    }
+    if (datos.message) return datos.message;
+    return fallback;
 }
 
 function tokenCsrf() {
@@ -1520,6 +1916,19 @@ async function apiFetch(url, opciones) {
     return { okHttp: respuesta.ok, status: respuesta.status, datos: datos };
 }
 
+async function abrirJugador(id, destino) {
+    const res = await apiFetch("/api/carrera/" + id);
+    if (!res.datos || !res.datos.ok) {
+        state.flash = (res.datos && res.datos.error) || "No pude abrir ese jugador.";
+        render();
+        return;
+    }
+    aplicarFicha(res.datos.ficha);
+    if (!state.retirado && destino) state.fase = destino;
+    guardarLocal();
+    render();
+}
+
 function aplicarFicha(ficha) {
     const cuenta = state.cuenta;
     const flash = state.flash;
@@ -1539,7 +1948,8 @@ async function refrescarCuenta() {
         state.cuenta = {
             google: !!datos.google,
             user: datos.user || null,
-            jugadores: datos.jugadores || []
+            jugadores: datos.jugadores || [],
+            historial: datos.historial || { carreras: 0, partidas: 0, partidos: 0, victorias: 0 }
         };
     } catch (falla) { /* Seguimos con la cuenta que ya teníamos. */ }
 }
@@ -1549,7 +1959,7 @@ async function prepararNuevo() {
     if (!res.datos || !res.datos.ok) {
         state.flash = (res.datos && res.datos.error) || "Solo un manager puede crear otro jugador.";
         render();
-        return;
+        return false;
     }
     const cuenta = state.cuenta;
     state = estadoInicial();
@@ -1557,8 +1967,13 @@ async function prepararNuevo() {
     state.fase = "crear";
     state.paso = "armar";
     state.id = null;
+    state.tipo = "novato";
+    state.dificultad = "baja";
+    state.calibre = 46;
+    state.flash = "Novato nuevo. Su calibre es el tuyo como manager.";
     guardarLocal();
     render();
+    return true;
 }
 
 async function sincronizarCuenta() {
@@ -1574,11 +1989,13 @@ async function sincronizarCuenta() {
     state.cuenta = {
         google: !!datos.google,
         user: datos.user || null,
-        jugadores: datos.jugadores || []
+        jugadores: datos.jugadores || [],
+        historial: datos.historial || { carreras: 0, partidas: 0, partidos: 0, victorias: 0 }
     };
     const params = new URLSearchParams(location.search);
     const marca = params.get("google");
-    if (marca) history.replaceState({}, "", "/jugar.php");
+    const ingreso = params.get("ingreso");
+    if (marca || ingreso) history.replaceState({}, "", location.pathname);
     if (marca === "falta") state.flash = "Google no está configurado en el servidor.";
     if (marca === "error") state.flash = "Google no pudo completar el ingreso.";
     if (marca === "ok" && state.nombre) {
@@ -1589,7 +2006,7 @@ async function sincronizarCuenta() {
             });
             if (guardado.datos && guardado.datos.ok) {
                 state.id = guardado.datos.id;
-                state.flash = "Carrera guardada en tu cuenta de Google.";
+                state.flash = "Carrera guardada en tu cuenta.";
             } else if (guardado.datos && guardado.datos.error) {
                 state.flash = guardado.datos.error;
             }
@@ -1602,8 +2019,17 @@ async function sincronizarCuenta() {
     }
     if (!state.nombre && datos.activa) {
         aplicarFicha(datos.activa);
-        if (marca === "ok") state.flash = "Cargué tu carrera.";
+        if (marca === "ok" || ingreso === "ok" || ingreso === "correo" || ingreso === "correo-no") {
+            state.flash = "Cargué tu carrera.";
+        }
     }
+    if (!state.flash && ingreso === "correo") {
+        state.flash = "Cuenta creada. Te enviamos la contraseña y unas frases al correo.";
+    }
+    if (!state.flash && ingreso === "correo-no") {
+        state.flash = "Cuenta creada. El correo no pudo salir. Revisá el SMTP del servidor.";
+    }
+    if (!state.flash && ingreso === "ok") state.flash = "Entraste.";
 }
 
 async function arrancar() {
@@ -1619,6 +2045,12 @@ async function arrancar() {
     } catch (falla) {
         equipos = [];
         state.error = "No pude leer los equipos. Revisá que la base siga encendida.";
+    }
+    try {
+        const mercado = await apiFetch("/api/estrellas");
+        estrellas = Array.isArray(mercado.datos) ? mercado.datos : [];
+    } catch (falla) {
+        estrellas = [];
     }
     await sincronizarCuenta();
     asegurarCalendario();
