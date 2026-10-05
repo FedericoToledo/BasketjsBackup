@@ -21,16 +21,13 @@ class CuentaTest extends TestCase
         }
     }
 
-    public function test_el_invitado_guarda_una_carrera_sin_cuenta(): void
+    public function test_el_invitado_no_puede_guardar_sin_cuenta(): void
     {
         $this->postJson('/api/guardar.php', $this->ficha('Calle'))
-            ->assertOk()
-            ->assertJson(['ok' => true]);
+            ->assertUnauthorized()
+            ->assertJson(['ok' => false]);
 
-        $fila = Jugador::query()->where('nombre', 'Calle')->first();
-        $this->assertNotNull($fila);
-        $this->assertNull($fila->user_id);
-        $this->assertFalse($fila->retiro);
+        $this->assertNull(Jugador::query()->where('nombre', 'Calle')->first());
     }
 
     public function test_google_sin_claves_vuelve_al_juego(): void

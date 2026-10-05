@@ -1,6 +1,7 @@
 :root {
     --navy: #1c1c22;
     --panel: #0b1f4d;
+    --caja: rgba(8, 20, 52, 0.55);
     --gold: #d0d0d0;
     --ink: #f4f7ff;
     --muted: #d5d8e0;
@@ -165,7 +166,7 @@ a.opcion { display: flex; flex-direction: column; justify-content: center; text-
 
 .opcion, .chip, .team {
     border: 3px solid var(--gold);
-    background: rgba(7, 22, 51, 0.88);
+    background: var(--caja);
     color: var(--ink);
     text-align: left;
     cursor: pointer;
@@ -221,7 +222,7 @@ a.opcion { display: flex; flex-direction: column; justify-content: center; text-
     width: 100%;
     min-height: 54px;
     border: 3px solid var(--gold);
-    background: rgba(4, 12, 32, 0.9);
+    background: var(--caja);
     color: var(--ink);
     font-size: 14px;
     padding: 12px;
@@ -233,7 +234,7 @@ a.opcion { display: flex; flex-direction: column; justify-content: center; text-
     align-items: center;
     justify-content: space-between;
     border: 3px solid var(--gold);
-    background: rgba(7, 22, 51, 0.88);
+    background: var(--caja);
     min-height: 54px;
     padding: 0 8px;
 }
@@ -294,7 +295,7 @@ a.opcion { display: flex; flex-direction: column; justify-content: center; text-
     min-height: 44px;
     padding: 4px 2px;
     border: 3px solid var(--gold);
-    background: rgba(7, 22, 51, 0.92);
+    background: var(--caja);
     color: var(--gold);
     font-size: 6px;
     cursor: pointer;
@@ -312,7 +313,7 @@ a.opcion { display: flex; flex-direction: column; justify-content: center; text-
     align-items: center;
     min-width: 0;
     border: 3px solid var(--gold);
-    background: rgba(6, 16, 42, 0.9);
+    background: var(--caja);
     padding: 8px;
 }
 
@@ -361,7 +362,7 @@ a.opcion { display: flex; flex-direction: column; justify-content: center; text-
 
 .caja {
     border: 3px solid var(--gold);
-    background: rgba(8, 20, 52, 0.9);
+    background: var(--caja);
     padding: 8px;
 }
 
@@ -495,7 +496,7 @@ a.opcion { display: flex; flex-direction: column; justify-content: center; text-
 .swatch {
     min-height: 72px;
     border: 3px solid var(--gold);
-    background: rgba(7, 22, 51, 0.88);
+    background: var(--caja);
     cursor: pointer;
 }
 
@@ -708,7 +709,7 @@ button, input, select, textarea { touch-action: manipulation; }
 #app .hud div {
     min-width: 0;
     border: 3px solid var(--gold);
-    background: rgba(7, 22, 51, 0.88);
+    background: var(--caja);
     padding: 6px;
 }
 
@@ -834,6 +835,26 @@ button, input, select, textarea { touch-action: manipulation; }
     font-size: 16px;
 }
 
+#app a.btn.google {
+    gap: 10px;
+}
+
+#app .logo-google {
+    width: 22px;
+    height: 22px;
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    background: #fff;
+    border-radius: 4px;
+}
+
+#app .logo-google svg {
+    width: 16px;
+    height: 16px;
+    display: block;
+}
+
 #app .hueco {
     margin-top: auto;
 }
@@ -843,7 +864,7 @@ button, input, select, textarea { touch-action: manipulation; }
     margin: 0;
     padding: 10px;
     border: 3px solid var(--gold);
-    background: rgba(6, 16, 42, 0.9);
+    background: var(--caja);
     color: var(--gold);
     text-align: left;
     cursor: pointer;

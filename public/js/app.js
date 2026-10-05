@@ -247,7 +247,12 @@ function marcaLogo(eq) {
 }
 
 function etiquetaClub(eq) {
-    if (!eq) return "La calle";
+    if (!eq) {
+        if (state.clubOrigen) {
+            return (state.ligaOrigen ? state.ligaOrigen + " · " : "") + state.clubOrigen;
+        }
+        return "La calle";
+    }
     const liga = eq.liga === "LNB" ? "Liga Nacional" : eq.liga;
     return liga + " · " + eq.nombre;
 }
@@ -684,14 +689,15 @@ function etiquetaStat(clave) {
     return { tiro: "Tiro", velocidad: "Velocidad", defensa: "Defensa" }[clave] || clave;
 }
 
-function linkJuego(juego) {
+function linkJuego(juego, modo) {
     const eq = equipoActual();
     const nombre = encodeURIComponent(state.nombre.trim());
     const equipo = eq ? eq.id : "";
-    if (juego === "reflejos") return "reflejos/index.php?equipo=" + equipo + "&nombre=" + nombre;
-    if (juego === "memoria") return "Juegodememoria.html";
-    if (juego === "simon") return "Simondice.html";
-    return "defensa.html";
+    const marca = "modo=" + (modo === "partido" ? "partido" : "entreno");
+    if (juego === "reflejos") return "reflejos/index.php?equipo=" + equipo + "&nombre=" + nombre + "&" + marca;
+    if (juego === "memoria") return "Juegodememoria.html?" + marca;
+    if (juego === "simon") return "Simondice.html?" + marca;
+    return "defensa.html?" + marca;
 }
 
 function etiquetaJuego(ev) {
@@ -725,7 +731,8 @@ function botonesDe(ev) {
                 <button class="btn ghost eleccion" data-op="1">Rechazar. Soy de acá</button>`;
     }
     if (ev.tipo === "mini") {
-        return `<a class="btn eleccion" data-juego="${esc(ev.juego)}" href="${esc(linkJuego(ev.juego))}">${etiquetaJuego(ev)}</a>`;
+        const modo = ev.calle ? "entreno" : "partido";
+        return `<a class="btn eleccion" data-juego="${esc(ev.juego)}" data-modo="${modo}" href="${esc(linkJuego(ev.juego, modo))}">${etiquetaJuego(ev)}</a>`;
     }
     if (ev.forzado) {
         return `<button class="btn eleccion" data-op="0">Me retiro</button>`;
@@ -1149,6 +1156,10 @@ function historialVisible() {
     };
 }
 
+function botonGoogle() {
+    return `<a class="btn ghost google" href="/auth/google"><span class="logo-google" aria-hidden="true"><svg viewBox="0 0 48 48"><path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/><path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"/><path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/><path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"/></svg></span>Entrar con Google</a>`;
+}
+
 function formularioAcceso() {
     const alta = authModo === "alta";
     return `<div class="login">
@@ -1157,7 +1168,7 @@ function formularioAcceso() {
         <input class="campo" id="clave" type="password" maxlength="64" autocomplete="${alta ? "new-password" : "current-password"}" placeholder="Contraseña" value="${esc(borrador.clave)}">
         <button class="btn" type="button" data-accion="${alta ? "crear-correo" : "entrar-correo"}">${alta ? "Crear cuenta" : "Entrar"}</button>
         <button class="btn ghost" type="button" data-accion="${alta ? "modo-entrar" : "modo-alta"}">${alta ? "Ya tengo cuenta" : "Crear cuenta con email"}</button>
-        <a class="btn ghost" href="/auth/google">Entrar con Google</a>
+        ${botonGoogle()}
     </div>`;
 }
 
@@ -1179,7 +1190,7 @@ function pantallaInicio() {
             </div>
         </div>
         <div class="actions columna">
-            <button class="btn" data-accion="empezar">Comenzar</button>
+            ${cuenta.user ? `<button class="btn" data-accion="empezar">Comenzar</button>` : ""}
             <button class="btn ghost" data-accion="como">¿Cómo jugar?</button>
         </div>
     </section>`;
@@ -1272,7 +1283,7 @@ function pantallaLobby() {
         <div class="actions columna">
             <button class="btn" data-accion="entrenar">Entrenar</button>
             <button class="btn" data-accion="ofertas">Ofertas${ofertas.length ? " · " + ofertas.length : ""}</button>
-            <a class="btn" data-juego="${esc(juego)}" data-modo="partido" href="${esc(linkJuego(juego))}">Jugar partido</a>
+            <a class="btn" data-juego="${esc(juego)}" data-modo="partido" href="${esc(linkJuego(juego, "partido"))}">Jugar partido</a>
         </div>
     </section>`;
 }
@@ -1285,7 +1296,7 @@ function pantallaEntrenar() {
         ["defensa", "Defensa", "Defensa"]
     ];
     const botones = juegos.map(([juego, titulo, detalle]) =>
-        `<a class="btn eleccion" data-juego="${juego}" href="${esc(linkJuego(juego))}">${titulo}<span class="sub">${detalle}</span></a>`
+        `<a class="btn eleccion" data-juego="${juego}" data-modo="entreno" href="${esc(linkJuego(juego, "entreno"))}">${titulo}<span class="sub">${detalle}</span></a>`
     ).join("");
     return `<section class="screen">
         ${cabeza("GYM")}
@@ -1446,9 +1457,7 @@ function botonesRetiro() {
             ${plantel}
             <button class="btn ghost" data-accion="preguntar-cierre">Cerrar cuenta</button>`;
     }
-    const google = cuenta.google
-        ? `<a class="btn ghost" href="/auth/google">Entrar con Google</a>`
-        : "";
+    const google = cuenta.google ? botonGoogle() : "";
     return `${seguir}
         ${google}
         <button class="btn ghost" data-accion="cerrar-local">Cerrar esta partida</button>`;
@@ -1461,7 +1470,7 @@ function pantallaCuenta() {
     const avatar = user && user.avatar
         ? `<img src="${esc(user.avatar)}" alt="">`
         : `<b class="monograma">${esc((user && user.nombre || "TU").slice(0, 2).toUpperCase())}</b>`;
-    let lead = "Sin cuenta, la carrera vive en este teléfono. En el inicio podés entrar con Google o con email.";
+    let lead = "Para jugar hace falta una cuenta. Entrá con Google o con email.";
     if (user && user.manager) {
         lead = "Manager nivel " + (user.nivel || nivelManager()) + ". El calibre de tu jugador te sube. NCAA en 2, LNB en 4, NBA en 6.";
     } else if (user) {
@@ -1470,7 +1479,7 @@ function pantallaCuenta() {
     const filas = (cuenta.jugadores || []).map((jugador) => {
         const marca = jugador.retiro ? "RETIRO" : "ACTIVO";
         const entrenar = jugador.retiro ? "" : `<button class="btn" data-entrenar="${jugador.id}">Entrenar</button>`;
-        const partido = jugador.retiro ? "" : `<a class="btn ghost" data-partido="${jugador.id}" href="${esc(linkJuego(juegoDe(jugador)))}">Partido</a>`;
+        const partido = jugador.retiro ? "" : `<a class="btn ghost" data-partido="${jugador.id}" href="${esc(linkJuego(juegoDe(jugador), "partido"))}">Partido</a>`;
         return `<div class="caja fila-jugador">
             <button class="opcion" data-jugador="${jugador.id}"><strong>${esc(jugador.nombre)} · ${esc(jugador.posicion)}</strong><span>${esc(marca)} · calibre ${jugador.calibre || 46}${jugador.liga ? " · " + esc(jugador.liga) : ""} · ${jugador.partidas || 0} partidas</span></button>
             <div class="fila-acciones">${entrenar}${partido}</div>
@@ -1579,6 +1588,7 @@ function ligar() {
         nodo.addEventListener("click", async () => {
             const accion = nodo.dataset.accion;
             if (accion === "empezar") {
+                if (!exigeCuenta()) return;
                 state.fase = "crear";
                 state.paso = "armar";
                 state.error = "";
@@ -1607,7 +1617,10 @@ function ligar() {
                 leerBorrador();
                 await enviarAcceso(accion === "crear-correo");
             }
-            if (accion === "jugar") comenzarAJugar();
+            if (accion === "jugar") {
+                if (!exigeCuenta()) return;
+                comenzarAJugar();
+            }
             if (accion === "ficha") {
                 state.fase = "ficha";
                 guardarLocal();
@@ -1846,6 +1859,16 @@ function ligar() {
     });
 }
 
+function exigeCuenta() {
+    if (state.cuenta && state.cuenta.user) return true;
+    state.flash = "Entrá con tu cuenta para jugar.";
+    state.fase = "";
+    state.paso = "inicio";
+    state.retirado = false;
+    render();
+    return false;
+}
+
 function leerBorrador() {
     const nombre = document.getElementById("alta-nombre");
     const correo = document.getElementById("correo");
@@ -2053,6 +2076,15 @@ async function arrancar() {
         estrellas = [];
     }
     await sincronizarCuenta();
+    if (!state.cuenta || !state.cuenta.user) {
+        const cuenta = state.cuenta;
+        const flash = state.flash;
+        state = estadoInicial();
+        state.cuenta = cuenta || state.cuenta;
+        state.flash = flash;
+        state.fase = "";
+        state.paso = "inicio";
+    }
     asegurarCalendario();
     cobrarRecompensa();
     render();

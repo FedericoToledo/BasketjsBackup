@@ -19,8 +19,8 @@
 
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap"
           rel="stylesheet">
-    <link rel="stylesheet" href="css/mini-fit.css?v=4">
-    <script src="js/mini-fit.js?v=3"></script>
+    <link rel="stylesheet" href="css/mini-fit.css?v=7">
+    <script src="js/mini-fit.js?v=4"></script>
 
     <style>
 
@@ -1148,6 +1148,8 @@ function iniciarJuego() {
 
     jugando = true;
 
+    if (window.rookieMarcar) rookieMarcar(true);
+
     ultimoTiempo = performance.now();
 
     crearPelota();
@@ -1570,6 +1572,7 @@ function actualizar(tiempo) {
 
 function terminarJuego(gano) {
     if (window.rookieSumar) rookieSumar("defensa", gano);
+    if (window.rookieMarcar) rookieMarcar(false);
     jugando = false;
 
 

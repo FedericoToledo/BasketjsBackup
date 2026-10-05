@@ -81,6 +81,11 @@ class CarreraController extends Controller
 
     public function guardar(Request $request): JsonResponse
     {
+        $user = $request->user();
+        if (! $user) {
+            return response()->json(['ok' => false, 'error' => 'Entrá con tu cuenta para jugar.'], 401);
+        }
+
         $datos = $request->json()->all();
         if (! is_array($datos) || $datos === []) {
             return response()->json(['ok' => false, 'error' => 'No llegaron los datos del jugador.'], 422);
@@ -93,7 +98,6 @@ class CarreraController extends Controller
         }
 
         $stats = is_array($datos['stats'] ?? null) ? $datos['stats'] : [];
-        $user = $request->user();
         $id = (int) ($datos['id'] ?? 0);
         $retiro = ! empty($datos['retirado']) || ($datos['fase'] ?? '') === 'retiro';
         $jugador = $id > 0 ? Jugador::find($id) : null;
@@ -103,7 +107,7 @@ class CarreraController extends Controller
         }
         if (! $jugador) {
             $id = 0;
-            if ($user && ! $user->es_manager) {
+            if (! $user->es_manager) {
                 if ($user->jugadores()->where('retiro', false)->exists()) {
                     return response()->json(['ok' => false, 'error' => 'Ya tenés una carrera activa.'], 422);
                 }
@@ -123,10 +127,8 @@ class CarreraController extends Controller
             'defensa' => (int) ($stats['defensa'] ?? 50),
             'equipo_id' => ! empty($datos['equipoId']) ? (int) $datos['equipoId'] : null,
             'retiro' => $retiro,
+            'user_id' => $user->id,
         ];
-        if ($user) {
-            $attrs['user_id'] = $user->id;
-        }
 
         if ($jugador) {
             $jugador->fill($attrs);

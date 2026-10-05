@@ -15,20 +15,75 @@ html.mini-fit nav {
     display: none !important;
 }
 
-html.mini-fit .mini-volver {
+html.mini-fit button.mini-volver {
     position: fixed;
     z-index: 1100;
     top: calc(8px + env(safe-area-inset-top));
     left: max(8px, calc(50vw - min(215px, 50vw) + 8px));
+    width: auto !important;
+    min-height: 36px;
     padding: 8px 12px;
     border: 3px solid #d0d0d0;
-    background: #071633;
+    background: rgba(8, 20, 52, 0.92);
     color: #d0d0d0;
     font-family: system-ui, sans-serif;
     font-size: 14px;
     font-weight: 700;
     line-height: 1;
-    text-decoration: none;
+    cursor: pointer;
+}
+
+html.mini-fit .mini-salir {
+    position: fixed;
+    inset: 0;
+    z-index: 1200;
+    display: grid;
+    place-items: center;
+    padding: 16px;
+    background: rgba(2, 4, 12, 0.72);
+}
+
+html.mini-fit .mini-salir[hidden] {
+    display: none;
+}
+
+html.mini-fit .mini-salir-panel {
+    width: min(340px, 100%);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 16px;
+    border: 3px solid #d0d0d0;
+    background: rgba(8, 20, 52, 0.94);
+}
+
+html.mini-fit .mini-salir-panel p {
+    margin: 0;
+    color: #f4f7ff;
+    font-family: system-ui, sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1.35;
+}
+
+html.mini-fit .mini-salir-panel button {
+    width: 100%;
+    min-height: 48px;
+    border: 3px solid #d0d0d0;
+    font-family: system-ui, sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+html.mini-fit .mini-salir-panel .si {
+    background: #d0d0d0;
+    color: #1a1200;
+}
+
+html.mini-fit .mini-salir-panel .no {
+    background: transparent;
+    color: #d0d0d0;
 }
 
 html.mini-fit main {
@@ -36,6 +91,12 @@ html.mini-fit main {
     margin: 0 !important;
     padding: 0 !important;
     min-height: 0 !important;
+}
+
+html.mini-fit main.game-wrapper,
+html.mini-fit main.game-container,
+html.mini-fit main.contenedor {
+    margin-inline: auto !important;
 }
 
 html.mini-fit .game-wrapper,
@@ -53,7 +114,7 @@ html.mini-fit .contenedor {
     overflow: hidden;
     box-sizing: border-box;
     padding:
-        calc(48px + env(safe-area-inset-top))
+        calc(56px + env(safe-area-inset-top))
         10px
         calc(10px + env(safe-area-inset-bottom)) !important;
 }
@@ -334,7 +395,8 @@ html.mini-fit #start-screen {
     height: 100dvh;
     transform: translateX(-50%);
     overflow: auto;
-    padding: calc(52px + env(safe-area-inset-top)) 12px 12px;
+    padding: calc(56px + env(safe-area-inset-top)) 12px 12px;
+    background: #02040c;
 }
 
 html.mini-fit .start-content {
@@ -372,7 +434,7 @@ html.mini-fit .modal-contenido h2 {
     html.mini-fit .game-container,
     html.mini-fit .contenedor {
         gap: 4px;
-        padding-top: calc(42px + env(safe-area-inset-top)) !important;
+        padding-top: calc(56px + env(safe-area-inset-top)) !important;
     }
 
     html.mini-fit h1,

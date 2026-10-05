@@ -10,8 +10,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/mini-fit.css?v=4">
-    <script src="js/mini-fit.js?v=3"></script>
+    <link rel="stylesheet" href="css/mini-fit.css?v=7">
+    <script src="js/mini-fit.js?v=4"></script>
 
     <style>
 
@@ -995,6 +995,7 @@
         ========================= */
 
         function createBoard() {
+            if (window.rookieMarcar) rookieMarcar(true);
 
             board.innerHTML = "";
 
@@ -1190,6 +1191,7 @@
 
                 if (pairs === 8) {
                     if (window.rookieSumar) rookieSumar("memoria", true);
+                    if (window.rookieMarcar) rookieMarcar(false);
                     lockBoard = true;
 
                     message.textContent =
@@ -1234,6 +1236,7 @@
 
                     if (lives <= 0) {
                         if (window.rookieSumar) rookieSumar("memoria", false);
+                        if (window.rookieMarcar) rookieMarcar(false);
                         lockBoard = true;
 
                         message.textContent =

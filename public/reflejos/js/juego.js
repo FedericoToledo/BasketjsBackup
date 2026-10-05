@@ -42,6 +42,7 @@ window.addEventListener("resize", () => {
 
 function comenzarJuego() {
     jugando = true;
+    if (window.rookieMarcar) rookieMarcar(true);
     tiempo = 30;
     aciertos = 0;
     vidas = 3;
@@ -101,6 +102,7 @@ function fallar() {
 
 function terminarJuego(perdiste) {
     if (window.rookieSumar) rookieSumar("reflejos", !perdiste, { aciertos: aciertos });
+    if (window.rookieMarcar) rookieMarcar(false);
     jugando = false;
     clearInterval(intervalo);
     objetivo.style.display = "none";
