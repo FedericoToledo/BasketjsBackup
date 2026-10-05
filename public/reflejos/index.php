@@ -35,8 +35,8 @@ if ($equipoId) {
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 
     <link rel="stylesheet" href="css/estilos.css">
-    <link rel="stylesheet" href="../css/mini-fit.css?v=7">
-    <script src="../js/mini-fit.js?v=4"></script>
+    <link rel="stylesheet" href="../css/mini-fit.css?v=8">
+    <script src="../js/mini-fit.js?v=5"></script>
 
     <style>
         :root {

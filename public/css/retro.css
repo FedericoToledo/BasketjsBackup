@@ -817,6 +817,14 @@ button, input, select, textarea { touch-action: manipulation; }
 #app .body {
     overflow-x: hidden;
     overflow-y: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+#app .body::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
 }
 
 #app .home-centro {
@@ -915,6 +923,41 @@ button, input, select, textarea { touch-action: manipulation; }
 
 #app .opcion.bloqueado {
     opacity: 0.45;
+}
+
+#app .campo.malo {
+    border-color: var(--danger);
+    background: rgba(255, 93, 115, 0.18);
+    color: #fff;
+}
+
+#app .flecha-baja {
+    position: absolute;
+    z-index: 30;
+    width: 28px;
+    height: 16px;
+    margin: 0;
+    pointer-events: none;
+    color: var(--gold);
+    filter: drop-shadow(2px 2px 0 #140c08);
+    animation: flecha-titila 0.45s steps(2, end) infinite alternate;
+}
+
+#app .flecha-baja[hidden] {
+    display: none !important;
+}
+
+#app .flecha-baja svg {
+    display: block;
+    width: 28px;
+    height: 16px;
+    fill: currentColor;
+    shape-rendering: crispEdges;
+}
+
+@keyframes flecha-titila {
+    from { opacity: 1; }
+    to { opacity: 0.15; }
 }
 
 #app {

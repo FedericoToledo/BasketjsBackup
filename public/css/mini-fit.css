@@ -7,6 +7,47 @@ html.mini-fit body {
     overflow: hidden;
     background: #02040c;
     display: block;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+html.mini-fit * {
+    scrollbar-width: none;
+}
+
+html.mini-fit *::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+}
+
+html.mini-fit .flecha-baja {
+    position: fixed;
+    z-index: 40;
+    width: 28px;
+    height: 16px;
+    margin: 0;
+    pointer-events: none;
+    color: #d0d0d0;
+    filter: drop-shadow(2px 2px 0 #140c08);
+    animation: flecha-titila 0.45s steps(2, end) infinite alternate;
+}
+
+html.mini-fit .flecha-baja[hidden] {
+    display: none !important;
+}
+
+html.mini-fit .flecha-baja svg {
+    display: block;
+    width: 28px;
+    height: 16px;
+    fill: currentColor;
+    shape-rendering: crispEdges;
+}
+
+@keyframes flecha-titila {
+    from { opacity: 1; }
+    to { opacity: 0.15; }
 }
 
 html.mini-fit .navbar,

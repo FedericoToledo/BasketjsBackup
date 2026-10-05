@@ -23,7 +23,7 @@ while ($fila = $resultado->fetch_assoc()) {
     $logo = 'assets/logos/' . $codigo . '.' . $extension;
     $fila['logo'] = is_file($base . '/' . $logo) ? $logo : null;
     $fila['minima'] = (int) $fila['minima'];
-    $propio = 'assets/fondos/' . $codigo . '.jpg';
+    $propio = 'assets/fondos/' . strtolower($fila['liga']) . '-' . $codigo . '.png';
     if (is_file($base . '/' . $propio)) {
         $fila['fondo'] = $propio;
     } else {

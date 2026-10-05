@@ -26,7 +26,7 @@ class EquipoController extends Controller
             $codigo = strtolower($fila->abreviatura);
             $extension = $codigo === 'mia' ? 'gif' : 'png';
             $logo = 'assets/logos/'.$codigo.'.'.$extension;
-            $propio = 'assets/fondos/'.$codigo.'.jpg';
+            $propio = 'assets/fondos/'.strtolower((string) $fila->liga).'-'.$codigo.'.png';
             $generico = $fondos[$fila->liga] ?? 'assets/fondo-calle.jpg';
             $fondo = is_file(public_path($propio)) ? $propio : (is_file(public_path($generico)) ? $generico : 'assets/fondo-calle.jpg');
 

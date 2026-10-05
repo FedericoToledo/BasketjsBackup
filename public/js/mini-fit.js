@@ -73,6 +73,46 @@
 
         document.body.prepend(salir);
         document.body.appendChild(capa);
+        ponerFlecha();
+    }
+
+    function ponerFlecha() {
+        var vieja = document.querySelector(".flecha-baja");
+        if (vieja) vieja.remove();
+        var candidatos = [
+            document.querySelector("#start-screen"),
+            document.querySelector(".overlay .panel"),
+            document.querySelector(".game-wrapper"),
+            document.querySelector(".game-container"),
+            document.querySelector(".contenedor")
+        ];
+        var nodo = null;
+        for (var i = 0; i < candidatos.length; i++) {
+            var item = candidatos[i];
+            if (!item) continue;
+            var estilo = getComputedStyle(item);
+            var puede = estilo.overflowY === "auto" || estilo.overflowY === "scroll" || estilo.overflowY === "overlay";
+            if (puede && item.scrollHeight > item.clientHeight + 16) {
+                nodo = item;
+                break;
+            }
+        }
+        if (!nodo) return;
+        var flecha = document.createElement("i");
+        flecha.className = "flecha-baja";
+        flecha.setAttribute("aria-hidden", "true");
+        flecha.innerHTML = '<svg viewBox="0 0 7 4" width="28" height="16"><rect x="0" y="0" width="1" height="1"/><rect x="6" y="0" width="1" height="1"/><rect x="1" y="1" width="1" height="1"/><rect x="5" y="1" width="1" height="1"/><rect x="2" y="2" width="1" height="1"/><rect x="4" y="2" width="1" height="1"/><rect x="3" y="3" width="1" height="1"/></svg>';
+        document.body.appendChild(flecha);
+        var mover = function () {
+            var sobra = nodo.scrollHeight - nodo.clientHeight - nodo.scrollTop;
+            var caja = nodo.getBoundingClientRect();
+            flecha.hidden = sobra <= 16;
+            flecha.style.left = Math.round(caja.left + caja.width / 2 - 14) + "px";
+            flecha.style.top = Math.round(caja.bottom - 26) + "px";
+        };
+        nodo.addEventListener("scroll", mover, { passive: true });
+        window.addEventListener("resize", mover);
+        mover();
     }
 
     if (document.body) ponerSalir();

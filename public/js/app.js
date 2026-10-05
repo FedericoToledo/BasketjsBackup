@@ -77,6 +77,8 @@ let equipos = [];
 let estrellas = [];
 let state = estadoInicial();
 let authModo = "entrar";
+let authMalos = [];
+let quitarFlecha = null;
 let borrador = { nombre: "", correo: "", clave: "" };
 
 function estadoInicial() {
@@ -1162,10 +1164,11 @@ function botonGoogle() {
 
 function formularioAcceso() {
     const alta = authModo === "alta";
+    const rojo = (id) => authMalos.indexOf(id) !== -1 ? " malo" : "";
     return `<div class="login">
         ${alta ? `<input class="campo" id="alta-nombre" maxlength="60" autocomplete="name" placeholder="Tu nombre" value="${esc(borrador.nombre)}">` : ""}
-        <input class="campo" id="correo" type="email" maxlength="190" autocomplete="username" placeholder="Email" value="${esc(borrador.correo)}">
-        <input class="campo" id="clave" type="password" maxlength="64" autocomplete="${alta ? "new-password" : "current-password"}" placeholder="Contraseña" value="${esc(borrador.clave)}">
+        <input class="campo${rojo("correo")}" id="correo" type="email" maxlength="190" autocomplete="username" placeholder="Email" value="${esc(borrador.correo)}">
+        <input class="campo${rojo("clave")}" id="clave" type="password" maxlength="64" autocomplete="${alta ? "new-password" : "current-password"}" placeholder="Contraseña" value="${esc(borrador.clave)}">
         <button class="btn" type="button" data-accion="${alta ? "crear-correo" : "entrar-correo"}">${alta ? "Crear cuenta" : "Entrar"}</button>
         <button class="btn ghost" type="button" data-accion="${alta ? "modo-entrar" : "modo-alta"}">${alta ? "Ya tengo cuenta" : "Crear cuenta con email"}</button>
         ${botonGoogle()}
@@ -1568,8 +1571,42 @@ function contenido() {
 
 function render() {
     aplicarTema();
-    document.getElementById("app").innerHTML = contenido();
+    const app = document.getElementById("app");
+    app.innerHTML = contenido();
+    if (app.querySelector(".body")) {
+        const flecha = document.createElement("i");
+        flecha.className = "flecha-baja";
+        flecha.hidden = true;
+        flecha.setAttribute("aria-hidden", "true");
+        flecha.innerHTML = '<svg viewBox="0 0 7 4" width="28" height="16"><rect x="0" y="0" width="1" height="1"/><rect x="6" y="0" width="1" height="1"/><rect x="1" y="1" width="1" height="1"/><rect x="5" y="1" width="1" height="1"/><rect x="2" y="2" width="1" height="1"/><rect x="4" y="2" width="1" height="1"/><rect x="3" y="3" width="1" height="1"/></svg>';
+        app.appendChild(flecha);
+    }
     ligar();
+    vigilarScroll();
+}
+
+function vigilarScroll() {
+    if (quitarFlecha) quitarFlecha();
+    quitarFlecha = null;
+    const body = document.querySelector("#app .body");
+    const flecha = document.querySelector("#app .flecha-baja");
+    const app = document.getElementById("app");
+    if (!body || !flecha || !app) return;
+    const mover = () => {
+        const sobra = body.scrollHeight - body.clientHeight - body.scrollTop;
+        const mostrar = sobra > 16;
+        flecha.hidden = !mostrar;
+        if (!mostrar) return;
+        const caja = body.getBoundingClientRect();
+        const marco = app.getBoundingClientRect();
+        flecha.style.left = Math.round(caja.left + caja.width / 2 - marco.left - 14) + "px";
+        flecha.style.top = Math.round(caja.bottom - marco.top - 26) + "px";
+    };
+    body.addEventListener("scroll", mover, { passive: true });
+    window.addEventListener("resize", mover);
+    quitarFlecha = () => window.removeEventListener("resize", mover);
+    mover();
+    requestAnimationFrame(mover);
 }
 
 function ligar() {
@@ -1582,7 +1619,11 @@ function ligar() {
         });
     }
     raiz.querySelectorAll("#alta-nombre, #correo, #clave").forEach((campo) => {
-        campo.addEventListener("input", leerBorrador);
+        campo.addEventListener("input", () => {
+            leerBorrador();
+            campo.classList.remove("malo");
+            authMalos = authMalos.filter((id) => id !== campo.id);
+        });
     });
     raiz.querySelectorAll("[data-accion]").forEach((nodo) => {
         nodo.addEventListener("click", async () => {
@@ -1610,6 +1651,7 @@ function ligar() {
             if (accion === "modo-alta" || accion === "modo-entrar") {
                 leerBorrador();
                 authModo = accion === "modo-alta" ? "alta" : "entrar";
+                authMalos = [];
                 state.flash = "";
                 render();
             }
@@ -1897,12 +1939,24 @@ async function enviarAcceso(alta) {
     }
     if (!res.okHttp || !res.datos || !res.datos.ok) {
         state.flash = textoError(res, alta ? "No pude crear la cuenta." : "No pude entrar.");
+        authMalos = alta ? [] : malosDe(res);
         render();
         return;
     }
+    authMalos = [];
     borrador.clave = "";
     const marca = alta ? (res.datos.correo ? "correo" : "correo-no") : "ok";
     location.href = "/?ingreso=" + marca;
+}
+
+function malosDe(res) {
+    const errors = (res && res.datos && res.datos.errors) || {};
+    const lista = [];
+    if (errors.email) lista.push("correo");
+    if (errors.password) lista.push("clave");
+    const aviso = Array.isArray(errors.email) ? String(errors.email[0] || "") : "";
+    if (/incorrectos|entra con Google/i.test(aviso) && lista.indexOf("clave") === -1) lista.push("clave");
+    return lista;
 }
 
 function textoError(res, fallback) {
